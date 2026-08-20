@@ -15,6 +15,11 @@ Not in 0.4.0-alpha. Same CLI shape when we add flags: optional
 
 Do not grow a NLE. 1.0 should feel finished, not full.
 
+Novices who do not want markers can **run vidwizard twice**: save
+`--grayscale` to a file, then `--crop` that file. That *is* cumulative
+(second pass sees the first encode). Cost: another lossy re-encode.
+`--overlap` is the same idea in **one** decode/encode.
+
 ### Tests
 
 Parsers/CLI are in decent shape. Still missing **picture proof**:

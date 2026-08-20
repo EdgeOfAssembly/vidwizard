@@ -11,9 +11,9 @@ High-quality command-line video edits, no GUI.
 > **Alpha (0.4.0-alpha).** Public preview.
 
 Name a file, name the effect, get a result. Quality and every logical
-CPU core are the defaults. Several flags on one command run as **one
-sequential graph** (crop, then grayscale, then speed, …). Ranges are
-optional.
+CPU core are the defaults. Several flags on one command are a
+**playlist of independent looks** on the source (later windows do not
+keep earlier effects). Ranges are optional.
 
 As of **0.4.0-alpha**, vidwizard can:
 
