@@ -5,7 +5,8 @@ Not in 0.4.0-alpha. Same CLI shape when we add flags: optional
 
 ## Before 1.0 (priority)
 
-1. **Overlapping ranges** (below) + a documented compose order + golden frames.
+1. **Playlist vs `--overlap`** (below): default independent looks;
+   markers for cumulative stack. Golden frames for both.
 2. **`--dry-run`** (print outputs / graph, encode nothing) and clearer progress.
 3. Stream-copy `--cut` / whole `--mute` when pixels need not change.
 4. `--reverse` without holding the whole window in RAM, or a hard refuse.
@@ -16,9 +17,10 @@ Do not grow a NLE. 1.0 should feel finished, not full.
 
 ### Tests
 
-Parsers/CLI are in decent shape. Still missing **picture proof**: gray∩crop,
-zoom∩text, speed∩reverse, `--text` at 0,0 vs a ranged crop (label got cut
-off), stereo `--speed`, open-ended `10-` on a real duration. Small
+Parsers/CLI are in decent shape. Still missing **picture proof**:
+playlist gray-then-colour-crop (demo), `--overlap` gray∩crop, zoom∩text,
+speed∩reverse, `--text` at 0,0 vs a ranged crop (label got cut off),
+stereo `--speed`, open-ended `10-` on a real duration. Small
 `testdata/golden/` clips beat another pile of unit tests.
 
 ### Performance
@@ -34,88 +36,97 @@ one graph emitter**. Leave `transcode.cpp` as “talk to libav.”
 
 ---
 
-## Overlapping vs sequential
+## Playlist (default) vs cumulative overlap (opt-in)
 
-### Two different clocks (easy to mix up)
+### What 0.4 actually does (and should keep as baseline)
 
-| Model | Meaning | vidwizard today |
-|--------|---------|-----------------|
-| **Timeline** | Every effect has a time on the *source* clock. Two ranges that intersect both apply on the overlap. | This is what `--grayscale=0-10 --crop=…:5-15` *should* mean. |
-| **Concat / “after that”** | Sequential *segments*: finish A, then B starts. Duration of A defines when B begins. | Not the current model. Whole-clip `--grayscale` has no “after.” |
+Default is a **playlist of independent looks on the source**, not a
+stack that poisons later stages.
 
-`--crop --grayscale` with **no** ranges already **stacks** (crop, then gray)
-on the whole clip. That is sequential *filters*, one timeline. The hole is
-**ranged** effects that share part of the time axis.
+Proof: the catwalk demo `--grayscale=5.5-7.5` then `--crop=…:7.5-9.2`.
+The face crop is **still colour**. Gray did not stay in the feed. That
+is correct for the baseline: each ranged effect is its own playlist
+entry, applied to the **original** picture for that window only.
 
-### Meta-markers (`--overlap` / `--sequential`)
+So we do **not** “already stack” in the sense that matters. Sequential
+here means **one look after another in time**, each non-destructive
+w.r.t. later windows.
 
-Idea:
+(Caveat: two **whole-clip** flags with **no** ranges, e.g. `--crop --grayscale`,
+go through one filter chain today and **do** compose. That is ambiguous
+under a playlist reading — both want the entire duration. Call that out
+in 1.0: either “no-range multi-effect is one combined look” or require
+`--overlap` / ranges.)
 
-```text
-vidwizard in.mp4 --grayscale --overlap --crop --reverse --sequential --mirror
-```
+### What overlap is for
 
-Read as: default sequential grayscale; then a group where crop **and**
-reverse start together; then sequential mirror.
+**Cumulative / destructive:** earlier effects stay in the feed; later
+(or simultaneous) effects see that output. Gray then crop in the **same**
+window → cropped grayscale. Zoom then text → label on the zoomed
+picture (and it stays if the group continues).
 
-**Partly on the right track** — grouping “these flags share a clock” is
-real. Hard parts:
+That is **not** the default. It needs an explicit **mode marker** so the
+program knows the user switched from playlist-independent to stacking.
 
-- Flag **order becomes significant**. Today options may appear in any
-  order. Mode switches (`--overlap` applies to *following* flags) break
-  that unless we document “markers are left-to-right.”
-- **When does the overlap group start?** “Right after grayscale” only
-  works if grayscale is a *segment* with an end. Whole-clip grayscale
-  never ends, so “then overlap crop/reverse” has no time to attach to.
-- Mixing **both** models on one line (absolute `5:00-` *and* “after the
-  previous group”) is the expensive design. Users will write both.
+### Markers (needed)
 
-### Easier first step (still 1.0-shaped)
+Left-to-right mode switches (order matters **only** around markers):
 
-Stay on the **source timeline**. Ranges already say *when*. Overlap =
-intersection. Compose order (fixed, documented), e.g.:
+| Marker | Mode for the following effect flags |
+|--------|-------------------------------------|
+| (default) / `--sequential` | Playlist: each effect is independent on the source for its range. |
+| `--overlap` | Cumulative: following effects stack on the same feed; they share timing (see below). |
 
-crop → zoom → color (gray/…) → text → speed → reverse
-
-```text
-vidwizard in.mp4 --grayscale=0-10 --crop=160x120+0+0:5-15
-```
-
-- 0–5s: grayscale only
-- 5–10s: grayscale **and** crop
-- 10–15s: crop only
-
-No new marker required for “both at once.”
-
-Optional sugar later: **`--overlap` = inherit the previous effect’s
-window** so the user does not repeat the range:
+Sketch:
 
 ```text
-vidwizard in.mp4 --grayscale=5-10 --overlap --crop 160x120 --text Crop
+vidwizard in.mp4 \
+  --grayscale=0-5 \
+  --overlap --crop 160x120 --reverse \
+  --sequential --mirror=10-
 ```
 
-means crop + text also 5–10s, stacked with gray. `--sequential` (or
-end of `--overlap` group) goes back to each flag carrying its own
-range (or the whole clip).
+Read as:
 
-That is easy for the user *and* for the parser: one bit of state
-(inherit window vs not). It does **not** invent “start after previous
-segment” times.
+1. Playlist: grayscale on original, 0–5s (then source again).
+2. `--overlap`: crop **and** reverse compose on one feed. Timing: inherit
+   the previous playlist item’s **end** as start unless a range is given
+   (`--crop` here has no range → starts at 5s, stacked with reverse).
+3. `--sequential`: back to independent; `--mirror=10-` is its own look
+   on the original from 10s.
 
-### Later (concat segments)
+Same command may mix **both** playlist entries and one or more overlap
+groups. That is the point.
 
-If we ever want “gray the first 5s, *then* crop+reverse the rest” without
-absolute times, that is a **second** language (playlist of stacks).
-Possible markers: `--then` / `--also`, or explicit ranges only.
-Do not ship that in the same breath as intersection-overlap.
+### Timing rules (keep this small)
 
-### Implementation sketch (intersection)
+- Playlist items: range on the flag, or whole clip if omitted (see
+  whole-clip caveat above).
+- After `--overlap`, flags **inherit the previous item’s window** unless
+  they specify their own range. If the previous item was `0-5`, overlap
+  crop+reverse default to **5s onward** (start after that playlist
+  entry) *or* the same window — **pick one and document it**.  
+  Preferred for “stack on the same beat”: **same window as previous**.  
+  Preferred for “then a stacked segment”: **start at previous end**.  
+  These two are different; 1.0 should not silently mean both. Decide
+  with a second marker if needed (`--overlap` = same window,
+  `--then --overlap` = start after previous end).
+- `--sequential` clears inherit/stack state.
 
-1. Collect every effect and its range (empty range = whole duration).
-2. Sort unique endpoints → slices.
-3. For each slice, the set of active effects; emit one filter chain in
-   compose order; concat slices.
-4. Tests: golden frames for gray∩crop, zoom∩text, speed∩reverse.
+### Why this is still hard (honest)
+
+- Markers make **flag order** matter next to `--overlap` / `--sequential`.
+  Rest of the CLI can stay order-independent.
+- “Same window” vs “start after previous” must not be fudged.
+- Implementation: playlist slices each get `source → that effect`;
+  overlap groups get `source → effect1 → effect2 → …` for that slice,
+  then concat. Golden frames: demo-style gray then colour crop
+  (independent); gray∩crop under `--overlap` (stacked).
+
+### Not this (rejected as default)
+
+Intersection-without-a-marker (`--grayscale=0-10 --crop=…:5-15` auto
+stacks on 5–10s) would surprise the playlist model. Overlap is **opt-in**.
 
 ---
 
