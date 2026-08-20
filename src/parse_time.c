@@ -591,6 +591,193 @@ int vw_parse_speed_spec(const char *s, double *factor, char *ranges, size_t rang
     return 0;
 }
 
+static int parse_one_zoom_seg(const char *s, vw_zoom_seg *out)
+{
+    char head[256];
+    const char *range_at = NULL;
+    const char *p = NULL;
+    char *at = NULL;
+    size_t hlen = 0;
+    vw_zoom_seg z;
+    vw_range rng[VW_MAX_RANGES];
+    size_t nr = 0;
+
+    if (s == NULL || out == NULL || *s == '\0')
+    {
+        return VW_EINVAL;
+    }
+
+    z.z0 = 1.0;
+    z.z1 = 1.0;
+    z.cx = 0.5;
+    z.cy = 0.5;
+    z.range.start_s = 0.0;
+    z.range.end_s = VW_RANGE_UNTIL_EOF;
+
+    /* Last ':' whose tail is a range list is the time window. */
+    p = s;
+    while (*p != '\0')
+    {
+        if (*p == ':' && vw_looks_like_ranges(p + 1))
+        {
+            range_at = p;
+        }
+        p++;
+    }
+
+    if (range_at != NULL)
+    {
+        hlen = (size_t)(range_at - s);
+        if (hlen == 0 || hlen >= sizeof(head))
+        {
+            return VW_EINVAL;
+        }
+        memcpy(head, s, hlen);
+        head[hlen] = '\0';
+        if (vw_parse_ranges(range_at + 1, rng, VW_MAX_RANGES, &nr) != 0 || nr < 1)
+        {
+            return VW_EINVAL;
+        }
+        z.range = rng[0];
+    }
+    else
+    {
+        hlen = strlen(s);
+        if (hlen >= sizeof(head))
+        {
+            return VW_EINVAL;
+        }
+        memcpy(head, s, hlen + 1);
+    }
+
+    at = strchr(head, '@');
+    if (at != NULL)
+    {
+        const char *c = at + 1;
+        if (parse_nonneg_double(&c, &z.cx) != 0)
+        {
+            return VW_EINVAL;
+        }
+        if (*c != ',')
+        {
+            return VW_EINVAL;
+        }
+        c++;
+        if (parse_nonneg_double(&c, &z.cy) != 0)
+        {
+            return VW_EINVAL;
+        }
+        if (*c != '\0')
+        {
+            return VW_EINVAL;
+        }
+        if (z.cx > 1.0 || z.cy > 1.0)
+        {
+            return VW_EINVAL;
+        }
+        *at = '\0';
+    }
+
+    p = head;
+    if (parse_nonneg_double(&p, &z.z0) != 0)
+    {
+        return VW_EINVAL;
+    }
+    if (*p == '-')
+    {
+        p++;
+        if (parse_nonneg_double(&p, &z.z1) != 0)
+        {
+            return VW_EINVAL;
+        }
+    }
+    else
+    {
+        z.z1 = z.z0;
+    }
+    if (*p != '\0')
+    {
+        return VW_EINVAL;
+    }
+    if (z.z0 < 1.0 || z.z1 < 1.0 || z.z0 > 8.0 || z.z1 > 8.0)
+    {
+        return VW_EINVAL;
+    }
+
+    *out = z;
+    return 0;
+}
+
+int vw_parse_zoom_spec(const char *s, vw_zoom_seg *buf, size_t cap, size_t *out_n)
+{
+    const char *p = NULL;
+    size_t n = 0;
+    size_t limit = 0;
+
+    if (s == NULL || buf == NULL || out_n == NULL)
+    {
+        return VW_EINVAL;
+    }
+
+    p = skip_spaces(s);
+    if (*p == '\0')
+    {
+        return VW_EINVAL;
+    }
+
+    limit = cap;
+    if (limit > (size_t)VW_MAX_ZOOMS)
+    {
+        limit = (size_t)VW_MAX_ZOOMS;
+    }
+
+    while (*p != '\0')
+    {
+        char tok[256];
+        size_t tlen = 0;
+        const char *q = p;
+        vw_zoom_seg seg;
+
+        while (*q != '\0' && *q != ';')
+        {
+            q++;
+        }
+        tlen = (size_t)(q - p);
+        if (tlen == 0 || tlen >= sizeof(tok))
+        {
+            return VW_EINVAL;
+        }
+        memcpy(tok, p, tlen);
+        tok[tlen] = '\0';
+        if (parse_one_zoom_seg(tok, &seg) != 0)
+        {
+            return VW_EINVAL;
+        }
+        if (n >= limit)
+        {
+            return VW_ENOSPC;
+        }
+        buf[n] = seg;
+        n++;
+        p = q;
+        if (*p == ';')
+        {
+            p++;
+            if (*p == '\0')
+            {
+                return VW_EINVAL;
+            }
+        }
+    }
+
+    if (n == 0)
+    {
+        return VW_EINVAL;
+    }
+    *out_n = n;
+    return 0;
+}
+
 int vw_frame_index_width(uint64_t frame_count)
 {
     int width = 0;

@@ -84,6 +84,11 @@ BUILD_FLAGS := -s V=0 -j$(shell nproc 2>/dev/null || echo 1)
 
 all: $(TARGET)
 
+HDRS := $(wildcard include/vidwizard/*.hpp include/vidwizard/*.h)
+
+$(LIB_OBJS) $(MAIN_OBJ): $(HDRS)
+$(TEST_OBJS): $(HDRS)
+
 $(BUILDDIR)/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@

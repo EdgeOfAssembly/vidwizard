@@ -1,4 +1,4 @@
-.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.2" "User Commands"
+.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.3" "User Commands"
 .SH NAME
 vidwizard \- high-quality command-line video edits
 .SH SYNOPSIS
@@ -97,6 +97,23 @@ Reverse the whole video, or reverse listed windows in place.
 .TP
 .BR \-\-mute [ =RANGES ]
 Drop all audio, or silence the listed windows (audio stream kept).
+.TP
+.BI \-\-zoom " SPEC"
+Animated zoom (Ken Burns). Each segment is
+.IR Z0[-Z1][@CX,CY][:RANGE]
+separated by
+.BR ; .
+.I Z
+is 1..8 (1 = no zoom).
+.I CX,CY
+are normalized 0..1 (default 0.5,0.5).
+.I Z0-Z1
+animates over the range;
+a single
+.I Z
+holds that factor.
+Example:
+.B \-\-zoom 1-2.4@0.5,0.4:2-4;2.4-1:4-6
 .TP
 .BI \-\-jobs " N"
 Worker/encoder threads.

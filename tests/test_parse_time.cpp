@@ -143,6 +143,33 @@ TEST_CASE("speed spec factor and optional ranges")
     REQUIRE(vw_parse_speed_spec("-1", &f, ranges, sizeof(ranges)) != 0);
 }
 
+TEST_CASE("zoom spec hold animate and multi segment")
+{
+    vw_zoom_seg z[4];
+    size_t n = 0;
+    REQUIRE(vw_parse_zoom_spec("2", z, 4, &n) == 0);
+    REQUIRE(n == 1);
+    REQUIRE(z[0].z0 == 2.0);
+    REQUIRE(z[0].z1 == 2.0);
+    REQUIRE(z[0].cx == 0.5);
+
+    REQUIRE(vw_parse_zoom_spec("1-2.5@0.5,0.4:3-5", z, 4, &n) == 0);
+    REQUIRE(z[0].z0 == 1.0);
+    REQUIRE(z[0].z1 == 2.5);
+    REQUIRE(z[0].cx == 0.5);
+    REQUIRE(z[0].cy == 0.4);
+    REQUIRE(z[0].range.start_s == 3.0);
+    REQUIRE(z[0].range.end_s == 5.0);
+
+    REQUIRE(vw_parse_zoom_spec("1-2@0.5,0.4:2-4;2-1@0.5,0.4:4-6", z, 4, &n) == 0);
+    REQUIRE(n == 2);
+    REQUIRE(z[1].z0 == 2.0);
+    REQUIRE(z[1].z1 == 1.0);
+
+    REQUIRE(vw_parse_zoom_spec("0.5", z, 4, &n) != 0);
+    REQUIRE(vw_parse_zoom_spec("9", z, 4, &n) != 0);
+}
+
 TEST_CASE("frame index width and name")
 {
     REQUIRE(vw_frame_index_width(0) == 1);

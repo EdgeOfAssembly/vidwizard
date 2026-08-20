@@ -98,7 +98,7 @@ int run_pipeline(const cli_options &opt)
     if (!has_operation(opt))
     {
         log_error("vidwizard: specify an operation (--grayscale, --explode, --cut, --speed, "
-                  "--crop, --reverse, --mute)");
+                  "--crop, --reverse, --mute, --zoom)");
         return 1;
     }
 

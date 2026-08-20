@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdio>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 namespace vidwizard
@@ -322,6 +323,81 @@ std::string grayscale_filter(const std::vector<vw_range> &ranges)
     return f;
 }
 
+std::string zoom_time_expr(int fps_num, int fps_den)
+{
+    /* zoompan has no `t`; use input frame index. */
+    if (fps_num <= 0 || fps_den <= 0)
+    {
+        return "(in/30)";
+    }
+    return "(in*" + fmt_f(static_cast<double>(fps_den) / static_cast<double>(fps_num)) + ")";
+}
+
+std::string zoom_gate(const vw_range &r, const std::string &texpr)
+{
+    const double t1 = r.end_s < 0.0 ? 1000000000000.0 : r.end_s;
+    return "(gte(" + texpr + "," + fmt_t(r.start_s) + ")*lt(" + texpr + "," + fmt_t(t1) + "))";
+}
+
+std::string zoom_filter(const std::vector<vw_zoom_seg> &segs, int w, int h, int fps_num,
+                        int fps_den)
+{
+    if (segs.empty() || w < 2 || h < 2)
+    {
+        return {};
+    }
+
+    /* Comma-free expressions so avfilter_graph_parse_ptr does not split them. */
+    const std::string texpr = zoom_time_expr(fps_num, fps_den);
+    std::string z = "1";
+    std::string cx = "0.5";
+    std::string cy = "0.5";
+    for (const vw_zoom_seg &s : segs)
+    {
+        const double t0 = s.range.start_s;
+        const double t1raw = s.range.end_s < 0.0 ? t0 + 1.0 : s.range.end_s;
+        const double dur = t1raw - t0 < 1e-6 ? 1e-6 : t1raw - t0;
+        const std::string gate = zoom_gate(s.range, texpr);
+        std::string zi;
+        if (std::fabs(s.z1 - s.z0) < 1e-9)
+        {
+            zi = fmt_f(s.z0);
+        }
+        else
+        {
+            zi = "(" + fmt_f(s.z0) + "+(" + fmt_f(s.z1 - s.z0) + ")*(" + texpr + "-" + fmt_t(t0) +
+                 ")/" + fmt_f(dur) + ")";
+        }
+        z += "+" + gate + "*(" + zi + "-1)";
+        cx += "+" + gate + "*(" + fmt_f(s.cx) + "-0.5)";
+        cy += "+" + gate + "*(" + fmt_f(s.cy) + "-0.5)";
+    }
+
+    const std::string rawx = "(iw*(" + cx + ")-iw/zoom/2)";
+    const std::string limx = "(iw-iw/zoom)";
+    const std::string x =
+        "(" + rawx + "*gte(" + rawx + ",0)*lte(" + rawx + "," + limx + ")+" + limx + "*gt(" + rawx +
+        "," + limx + "))";
+    const std::string rawy = "(ih*(" + cy + ")-ih/zoom/2)";
+    const std::string limy = "(ih-ih/zoom)";
+    const std::string y =
+        "(" + rawy + "*gte(" + rawy + ",0)*lte(" + rawy + "," + limy + ")+" + limy + "*gt(" + rawy +
+        "," + limy + "))";
+
+    char swh[64];
+    std::snprintf(swh, sizeof(swh), "%dx%d", w & ~1, h & ~1);
+    std::string fps = "30";
+    if (fps_num > 0 && fps_den > 0)
+    {
+        char b[64];
+        std::snprintf(b, sizeof(b), "%d/%d", fps_num, fps_den);
+        fps = b;
+    }
+
+    return std::string("zoompan=z='") + z + "':x='" + x + "':y='" + y + "':d=1:s=" + swh +
+           ":fps=" + fps;
+}
+
 bool needs_segment_graph(const cli_options &opt)
 {
     if (opt.reverse && !opt.reverse_ranges.empty())
@@ -362,6 +438,11 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
         {
             std::string ve =
                 video_effects(segs[0], crop_resolved, src_w, src_h, false, fps_num, fps_den);
+            const std::string zf = zoom_filter(opt.zoom, src_w, src_h, fps_num, fps_den);
+            if (!zf.empty())
+            {
+                ve = ve.empty() || ve == "null" ? zf : zf + "," + ve;
+            }
             g.video = ve.empty() ? "null" : ve;
             if (mute_all)
             {
@@ -379,6 +460,13 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
         g.uses_split = true;
         const int n = static_cast<int>(segs.size());
         std::ostringstream v;
+        {
+            const std::string zf = zoom_filter(opt.zoom, src_w, src_h, fps_num, fps_den);
+            if (!zf.empty())
+            {
+                v << zf << ",";
+            }
+        }
         v << "split=" << n;
         for (int i = 0; i < n; i++)
         {
@@ -441,6 +529,13 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
 
     /* Simple chain: original timestamps, enable= for ranged gray/mute. */
     std::vector<std::string> vparts;
+    {
+        const std::string zf = zoom_filter(opt.zoom, src_w, src_h, fps_num, fps_den);
+        if (!zf.empty())
+        {
+            vparts.push_back(zf);
+        }
+    }
     const bool whole_crop = opt.crop.has_value() && opt.crop_ranges.empty();
     if (whole_crop && crop_resolved != nullptr)
     {

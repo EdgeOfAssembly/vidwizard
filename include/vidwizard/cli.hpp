@@ -51,6 +51,8 @@ struct cli_options
     bool mute = false;
     std::vector<vw_range> mute_ranges;
 
+    std::vector<vw_zoom_seg> zoom;
+
     std::vector<std::filesystem::path> inputs;
 };
 
@@ -90,7 +92,7 @@ parse_result parse_argv(int argc, char **argv);
  *
  * @param[in] opt Parsed options.
  *
- * @return true when grayscale/explode/cut/speed/crop/reverse/mute is set.
+ * @return true when grayscale/explode/cut/speed/crop/reverse/mute/zoom is set.
  */
 bool has_operation(const cli_options &opt);
 

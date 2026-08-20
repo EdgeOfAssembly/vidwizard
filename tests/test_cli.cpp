@@ -98,6 +98,10 @@ TEST_CASE("range-valued operations")
     REQUIRE(crop.opt.crop.has_value());
     REQUIRE(crop.opt.crop->width == 160);
 
+    auto zm = parse_words({"vidwizard", "--zoom", "1-2.2@0.5,0.4:2-4", "a.mp4"});
+    REQUIRE(zm.opt.zoom.size() == 1);
+    REQUIRE(zm.opt.zoom[0].z1 == Catch::Approx(2.2));
+
     auto mute = parse_words({"vidwizard", "--mute=0-1", "a.mp4"});
     REQUIRE(mute.opt.mute);
     REQUIRE(mute.opt.mute_ranges.size() == 1);
@@ -134,6 +138,7 @@ TEST_CASE("usage text contains required interface")
     REQUIRE(std::string(u).find("-h, --help") != std::string::npos);
     REQUIRE(std::string(u).find("-v, --version") != std::string::npos);
     REQUIRE(std::string(u).find("--verbose") != std::string::npos);
-    REQUIRE(std::string(u).find("vidwizard 0.2") != std::string::npos);
+    REQUIRE(std::string(u).find("vidwizard 0.3") != std::string::npos);
+    REQUIRE(std::string(u).find("--zoom") != std::string::npos);
     REQUIRE(std::string(u).find("sequential") != std::string::npos);
 }

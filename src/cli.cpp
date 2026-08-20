@@ -38,6 +38,8 @@ const char k_usage[] =
     "      --crop GEOM[:RANGES]    Crop WxH+X+Y or W:H:X:Y (WxH = centered)\n"
     "      --reverse[=RANGES]      Reverse whole video or ranges in place\n"
     "      --mute[=RANGES]         Drop all audio, or silence given ranges\n"
+    "      --zoom SPEC             Animate zoom: Z0[-Z1][@CX,CY][:RANGE]\n"
+    "                              Segments split by ;  (CX,CY are 0..1)\n"
     "      --jobs N                Threads (default: all logical cores)\n"
     "      --verbose               Extra progress on stderr\n"
     "      --log-file PATH         Also write diagnostics to PATH\n"
@@ -110,7 +112,7 @@ const char *usage_text(void)
 bool has_operation(const cli_options &opt)
 {
     return opt.grayscale || opt.explode || opt.cut || opt.speed_factor.has_value() ||
-           opt.crop.has_value() || opt.reverse || opt.mute;
+           opt.crop.has_value() || opt.reverse || opt.mute || !opt.zoom.empty();
 }
 
 int operation_count(const cli_options &opt)
@@ -123,6 +125,7 @@ int operation_count(const cli_options &opt)
     n += opt.crop.has_value() ? 1 : 0;
     n += opt.reverse ? 1 : 0;
     n += opt.mute ? 1 : 0;
+    n += opt.zoom.empty() ? 0 : 1;
     return n;
 }
 
@@ -161,6 +164,10 @@ std::string default_suffix(const cli_options &opt)
     {
         return "_mute";
     }
+    if (!opt.zoom.empty())
+    {
+        return "_zoom";
+    }
     return "_edit";
 }
 
@@ -179,6 +186,10 @@ void resolve_option_ranges(cli_options &opt, double duration_s)
     go(opt.crop_ranges);
     go(opt.reverse_ranges);
     go(opt.mute_ranges);
+    for (vw_zoom_seg &z : opt.zoom)
+    {
+        vw_resolve_ranges(&z.range, 1, duration_s);
+    }
 }
 
 parse_result parse_argv(int argc, char **argv)
@@ -452,6 +463,27 @@ parse_result parse_argv(int argc, char **argv)
                     return result;
                 }
             }
+            continue;
+        }
+
+        if (!end_of_opts && (std::strcmp(arg, "--zoom") == 0 || starts_with(arg, "--zoom=")))
+        {
+            const char *eq = starts_with(arg, "--zoom=") ? arg + std::strlen("--zoom=") : nullptr;
+            const char *val = take_value(&i, argc, argv, eq, &result.error, "--zoom");
+            if (val == nullptr)
+            {
+                result.exit_code = 1;
+                return result;
+            }
+            vw_zoom_seg zbuf[VW_MAX_ZOOMS];
+            size_t zn = 0;
+            if (vw_parse_zoom_spec(val, zbuf, VW_MAX_ZOOMS, &zn) != 0)
+            {
+                result.error = std::string("invalid --zoom spec: ") + val;
+                result.exit_code = 1;
+                return result;
+            }
+            result.opt.zoom.assign(zbuf, zbuf + zn);
             continue;
         }
 

@@ -51,6 +51,22 @@ TEST_CASE("ranged reverse uses split concat")
     REQUIRE(g.video.find("reverse") != std::string::npos);
 }
 
+TEST_CASE("zoom filter uses zoompan")
+{
+    vidwizard::cli_options opt{};
+    vw_zoom_seg z{};
+    z.z0 = 1.0;
+    z.z1 = 2.0;
+    z.cx = 0.5;
+    z.cy = 0.4;
+    z.range.start_s = 2.0;
+    z.range.end_s = 4.0;
+    opt.zoom.push_back(z);
+    const auto g = vidwizard::build_filter_graphs(opt, {}, 640, 360, 10.0, nullptr, 30, 1);
+    REQUIRE(g.video.find("zoompan=") != std::string::npos);
+    REQUIRE(g.video.find("d=1") != std::string::npos);
+}
+
 TEST_CASE("whole speed setpts and atempo")
 {
     vidwizard::cli_options opt{};

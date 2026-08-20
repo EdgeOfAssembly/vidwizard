@@ -15,6 +15,9 @@ extern "C" {
 /** Maximum number of START-END pairs accepted in one list. */
 #define VW_MAX_RANGES 64
 
+/** Maximum animated zoom segments in one `--zoom` spec. */
+#define VW_MAX_ZOOMS 16
+
 /** Maximum characters in a copied ranges substring (including NUL). */
 #define VW_MAX_RANGES_CHARS 512
 
@@ -50,6 +53,21 @@ typedef struct vw_crop
     int y;
     int centered;
 } vw_crop;
+
+/**
+ * @brief One zoom keyframe: animate z0→z1 over @p range at normalized center.
+ *
+ * @p z0 == @p z1 holds a constant factor. Center @p cx,@p cy are 0..1
+ * (0.5,0.5 is frame centre). @p range.end_s may be #VW_RANGE_UNTIL_EOF.
+ */
+typedef struct vw_zoom_seg
+{
+    double z0;
+    double z1;
+    double cx;
+    double cy;
+    vw_range range;
+} vw_zoom_seg;
 
 /**
  * @brief Parse a timestamp into seconds.
@@ -137,6 +155,18 @@ int vw_parse_crop_spec(const char *s, vw_crop *crop, char *ranges, size_t ranges
  * @retval -28  ENOSPC.
  */
 int vw_parse_speed_spec(const char *s, double *factor, char *ranges, size_t ranges_cap);
+
+/**
+ * @brief Parse `--zoom` spec: `Z0[-Z1][@CX,CY][:RANGE]` segments split by `;`.
+ *
+ * Examples: `2`, `2:3-5`, `1-2.5@0.5,0.4:3-5`,
+ * `1-2.4@0.5,0.4:2-4;2.4-1:4-6`.
+ *
+ * @retval  0   Success.
+ * @retval -22  EINVAL.
+ * @retval -28  ENOSPC.
+ */
+int vw_parse_zoom_spec(const char *s, vw_zoom_seg *buf, size_t cap, size_t *out_n);
 
 /**
  * @brief Decimal digit width needed to write 1..@p frame_count.
