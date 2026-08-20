@@ -1,0 +1,8 @@
+PROJECT_NAME           = vidwizard
+OUTPUT_DIRECTORY       = doxygen
+INPUT                  = include/vidwizard src
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+GENERATE_LATEX         = NO
+QUIET                  = YES
+FILE_PATTERNS          = *.hpp *.h *.cpp *.c

@@ -1,0 +1,10 @@
+# FFmpeg / x264 process-lifetime allocations (not vidwizard leaks).
+leak:libavcodec
+leak:libavformat
+leak:libavfilter
+leak:libavutil
+leak:libx264
+leak:libswscale
+leak:sws_
+leak:av_
+leak:x264_

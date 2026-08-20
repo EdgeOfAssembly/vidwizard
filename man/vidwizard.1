@@ -1,0 +1,137 @@
+.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.1" "User Commands"
+.SH NAME
+vidwizard \- high-quality command-line video edits
+.SH SYNOPSIS
+.B vidwizard
+[\fIOPTIONS\fR]
+.IR inputs ...
+.SH DESCRIPTION
+.B vidwizard
+applies common video-editor operations from the command line using the FFmpeg
+libraries.
+Defaults keep quality high (libx264 CRF 16, Rec.709 grayscale, max-compressed
+32-bit PNG) and use every logical CPU core.
+Options and input paths may appear in any order.
+With no arguments,
+.B vidwizard
+prints the same help as
+.B \-h
+and exits 0.
+.PP
+Time ranges are
+.I START-END,START-END,...
+Times may be seconds
+.RI ( 10.5 ),
+.I MM:SS
+or
+.IR HH:MM:SS
+(fractions allowed).
+Empty ranges mean the whole timeline.
+.PP
+.B \-\-reverse
+buffers the selected frames in memory (fine for short clips; huge files
+may need a lot of RAM).
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help and exit.
+.TP
+.BR \-v ", " \-\-version
+Show version and exit.
+Never used for verbose mode.
+.TP
+.BI \-o ", " \-\-output " PATH"
+Single output file or directory.
+One input plus a file path uses that exact name.
+Several inputs plus a file path warn and write
+.I outstem_instem.ext .
+A directory (existing, trailing slash, or created) receives default-named
+outputs.
+.TP
+.BR \-\-grayscale [ =RANGES ]
+High-quality Rec.709 grayscale.
+Optional ranges apply the effect only in those windows.
+.TP
+.BR \-\-explode [ =RANGES ]
+Write lossless 32-bit RGBA PNG frames with zlib level 9 and mixed prediction.
+Names are
+.I stem_0001.png
+with zero-pad width taken from the frame count (20 frames → 01..20).
+.TP
+.BI \-\-cut " RANGES"
+Extract each range as its own video
+.RI ( stem_cut_01.ext ).
+.TP
+.BI \-\-speed " FACTOR[:RANGES]"
+Forward speed multiplier (for example 1.5, 2, 2.75).
+Optional ranges speed only those windows; the rest stays 1×.
+.TP
+.BI \-\-crop " GEOM[:RANGES]"
+Crop
+.I WxH+X+Y
+or
+.IR W:H:X:Y .
+.I WxH
+or
+.I W:H
+crops from the centre.
+Ranged crop zooms that rectangle during the windows and keeps the original
+frame size.
+.TP
+.BR \-\-reverse [ =RANGES ]
+Reverse the whole video, or reverse listed windows in place.
+.TP
+.BR \-\-mute [ =RANGES ]
+Drop all audio, or silence the listed windows (audio stream kept).
+.TP
+.BI \-\-jobs " N"
+Worker/encoder threads.
+Default: all logical cores.
+.TP
+.B \-\-verbose
+Extra progress on stderr.
+.TP
+.BI \-\-log-file " PATH"
+Also write diagnostics to
+.IR PATH .
+.SH EXIT STATUS
+.TP
+.B 0
+Success, including help and version.
+.TP
+.B 1
+Usage error or no usable inputs.
+.TP
+.B 2
+One or more inputs failed to process.
+.SH EXAMPLES
+Grayscale a file (writes
+.IR clip_gray.mp4 ):
+.RS
+.B vidwizard clip.mp4 \-\-grayscale
+.RE
+.PP
+Explode frames:
+.RS
+.B vidwizard clip.mp4 \-\-explode
+.RE
+.PP
+Cut two parts:
+.RS
+.B vidwizard clip.mp4 \-\-cut 10-20,1:00-1:30
+.RE
+.PP
+Speed up two windows by 2.75×:
+.RS
+.B vidwizard clip.mp4 \-\-speed 2.75:10-20,30-40
+.RE
+.PP
+Crop the centre 640×360:
+.RS
+.B vidwizard clip.mp4 \-\-crop 640x360
+.RE
+.SH SEE ALSO
+.BR ffmpeg (1),
+.BR ffprobe (1)
+.SH AUTHORS
+Written for the vidwizard project.
