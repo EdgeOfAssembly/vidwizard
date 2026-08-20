@@ -90,6 +90,10 @@ TEST_CASE("range-valued operations")
     REQUIRE(sp.opt.speed_factor.has_value());
     REQUIRE(*sp.opt.speed_factor == Catch::Approx(2.75));
 
+    auto slow = parse_words({"vidwizard", "--speed", "0.5", "a.mp4"});
+    REQUIRE(slow.opt.speed_factor.has_value());
+    REQUIRE(*slow.opt.speed_factor == Catch::Approx(0.5));
+
     auto sp2 = parse_words({"vidwizard", "--speed=2:10-20,30-40", "a.mp4"});
     REQUIRE(*sp2.opt.speed_factor == Catch::Approx(2.0));
     REQUIRE(sp2.opt.speed_ranges.size() == 2);
@@ -117,12 +121,70 @@ TEST_CASE("unknown option and missing values")
     auto u = parse_words({"vidwizard", "--not-a-flag", "a.mp4"});
     REQUIRE_FALSE(u.error.empty());
     REQUIRE(u.exit_code != 0);
+    REQUIRE(u.error.find("unknown option") != std::string::npos);
+    REQUIRE(u.error.find("Usage: vidwizard") == std::string::npos);
 
     auto j = parse_words({"vidwizard", "--jobs", "0", "a.mp4"});
     REQUIRE_FALSE(j.error.empty());
 
     auto c = parse_words({"vidwizard", "--cut"});
     REQUIRE_FALSE(c.error.empty());
+    REQUIRE(c.error.find("requires a value") != std::string::npos);
+}
+
+TEST_CASE("CLI take_value does not swallow the next flag")
+{
+    auto cut = parse_words({"vidwizard", "--cut", "-o", "out/"});
+    REQUIRE_FALSE(cut.error.empty());
+    REQUIRE(cut.exit_code != 0);
+    REQUIRE(cut.error.find("requires a value") != std::string::npos);
+    REQUIRE(cut.error.find("-o") == std::string::npos);
+    REQUIRE_FALSE(cut.opt.output.has_value());
+
+    auto crop = parse_words({"vidwizard", "--crop", "--grayscale", "a.mp4"});
+    REQUIRE_FALSE(crop.error.empty());
+    REQUIRE(crop.error.find("--crop requires a value") != std::string::npos);
+
+    auto speed = parse_words({"vidwizard", "--speed", "--output", "x.mp4", "a.mp4"});
+    REQUIRE_FALSE(speed.error.empty());
+    REQUIRE(speed.error.find("--speed requires a value") != std::string::npos);
+
+    auto zoom = parse_words({"vidwizard", "--zoom", "--text", "Hi", "a.mp4"});
+    REQUIRE_FALSE(zoom.error.empty());
+    REQUIRE(zoom.error.find("--zoom requires a value") != std::string::npos);
+
+    auto text = parse_words({"vidwizard", "--text", "--output", "x.mp4", "a.mp4"});
+    REQUIRE_FALSE(text.error.empty());
+    REQUIRE(text.error.find("--text requires a value") != std::string::npos);
+
+    auto out = parse_words({"vidwizard", "--output", "--grayscale", "a.mp4"});
+    REQUIRE_FALSE(out.error.empty());
+    REQUIRE(out.error.find("-o/--output requires a value") != std::string::npos);
+
+    auto g = parse_words({"vidwizard", "--grayscale", "-20", "a.mp4"});
+    REQUIRE(g.error.empty());
+    REQUIRE(g.opt.grayscale);
+    REQUIRE(g.opt.grayscale_ranges.size() == 1);
+    REQUIRE(g.opt.grayscale_ranges[0].start_s == 0.0);
+    REQUIRE(g.opt.grayscale_ranges[0].end_s == 20.0);
+    REQUIRE(g.opt.inputs.size() == 1);
+
+    auto cut_open = parse_words({"vidwizard", "--cut", "-20", "a.mp4"});
+    REQUIRE(cut_open.error.empty());
+    REQUIRE(cut_open.opt.cut);
+    REQUIRE(cut_open.opt.cut_ranges.size() == 1);
+    REQUIRE(cut_open.opt.cut_ranges[0].end_s == 20.0);
+}
+
+TEST_CASE("CLI zoom factor outside 1..8 mentions the range")
+{
+    auto hi = parse_words({"vidwizard", "--zoom", "9", "a.mp4"});
+    REQUIRE_FALSE(hi.error.empty());
+    REQUIRE(hi.error.find("1..8") != std::string::npos);
+
+    auto lo = parse_words({"vidwizard", "--zoom", "0.5", "a.mp4"});
+    REQUIRE_FALSE(lo.error.empty());
+    REQUIRE(lo.error.find("1..8") != std::string::npos);
 }
 
 TEST_CASE("operation count and suffix")
@@ -146,5 +208,12 @@ TEST_CASE("usage text contains required interface")
     REQUIRE(std::string(u).find("vidwizard 0.4.0-alpha") != std::string::npos);
     REQUIRE(std::string(u).find("--zoom") != std::string::npos);
     REQUIRE(std::string(u).find("--text") != std::string::npos);
-    REQUIRE(std::string(u).find("sequential") != std::string::npos);
+    REQUIRE(std::string(u).find("playlist") != std::string::npos);
+    REQUIRE(std::string(u).find("independent looks") != std::string::npos);
+    REQUIRE(std::string(u).find("1..8") != std::string::npos);
+    REQUIRE(std::string(u).find("max PNG compression") != std::string::npos);
+    REQUIRE(std::string(u).find("0.5 slow") != std::string::npos);
+    REQUIRE(std::string(u).find("_cut_1") != std::string::npos);
+    REQUIRE(std::string(u).find("sequential graph") == std::string::npos);
+    REQUIRE(std::string(u).find("max zip") == std::string::npos);
 }

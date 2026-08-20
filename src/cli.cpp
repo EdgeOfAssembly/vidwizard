@@ -21,8 +21,9 @@ const char k_usage[] =
     "            A directory is expanded to common video types.\n"
     "\n"
     "High-quality edits without a GUI. Quality and all logical CPU cores are\n"
-    "the defaults. Several flags on one command run as one sequential graph\n"
-    "(crop then grayscale then speed, …). Ranges are optional.\n"
+    "the defaults. Ranged flags are a playlist of independent looks on the\n"
+    "source (later windows do not keep earlier effects). Whole-clip flags\n"
+    "with no ranges currently still combine in one encode. Ranges are optional.\n"
     "Time ranges: START-END,START-END,…  Open end: 10-  (to EOF). Open start:\n"
     "-20 (from 0). Times: seconds, MM:SS, or HH:MM:SS (fractions allowed).\n"
     "\n"
@@ -31,15 +32,15 @@ const char k_usage[] =
     "  -v, --version               Show version and exit\n"
     "  -o, --output PATH           Single output file or directory\n"
     "      --grayscale[=RANGES]    High-quality Rec.709 grayscale\n"
-    "      --explode[=RANGES]      Lossless 32-bit RGBA PNG frames (max zip)\n"
+    "      --explode[=RANGES]      Lossless 32-bit RGBA PNG frames (max PNG compression)\n"
     "      --cut RANGES            Extract each range as its own video\n"
-    "      --speed FACTOR[:RANGES] Forward speed (e.g. 1.5, 2, 2.75); audio\n"
+    "      --speed FACTOR[:RANGES] Positive float (e.g. 0.5 slow, 2 fast); audio\n"
     "                              stays in pitch. --mute to drop it\n"
     "      --crop GEOM[:RANGES]    Crop WxH+X+Y or W:H:X:Y (WxH = centered)\n"
     "      --reverse[=RANGES]      Reverse whole video or ranges in place\n"
     "      --mute[=RANGES]         Drop all audio, or silence given ranges\n"
     "      --zoom SPEC             Animate zoom: Z0[-Z1][@CX,CY][:RANGE]\n"
-    "                              Segments split by ;  (CX,CY are 0..1)\n"
+    "                              Z is 1..8; segments split by ;  (CX,CY are 0..1)\n"
     "      --text SPEC             Overlay (repeatable): TEXT[:RANGE][+X+Y]\n"
     "                              Default 0,0 white bold, transparent bg\n"
     "      --text-font PATH        Font file (default DejaVu Sans Bold)\n"
@@ -51,7 +52,7 @@ const char k_usage[] =
     "      --verbose               Extra progress on stderr\n"
     "      --log-file PATH         Also write diagnostics to PATH\n"
     "\n"
-    "Default outputs (no -o): <stem>_gray.ext, <stem>_01.png, <stem>_cut_01.ext,\n"
+    "Default outputs (no -o): <stem>_gray.ext, <stem>_01.png, <stem>_cut_1.ext,\n"
     "<stem>_speed.ext, <stem>_crop.ext, <stem>_rev.ext, <stem>_mute.ext, or\n"
     "<stem>_edit.ext when combining operations. PNG index width matches the\n"
     "frame count (20 frames → 01..20; 1000 frames → 0001..1000).\n"
@@ -87,6 +88,14 @@ const char *take_value(int *i, int argc, char **argv, const char *eq, std::strin
         return eq;
     }
     if (*i + 1 >= argc)
+    {
+        *error = std::string(flag) + " requires a value";
+        return nullptr;
+    }
+    const char *next = argv[*i + 1];
+    /* Do not swallow the next flag as a value. Negative range lists such as
+     * `-20` are values (vw_looks_like_ranges). `--cut -o out/` is not. */
+    if (next != nullptr && next[0] == '-' && vw_looks_like_ranges(next) == 0)
     {
         *error = std::string(flag) + " requires a value";
         return nullptr;
@@ -499,7 +508,7 @@ parse_result parse_argv(int argc, char **argv)
             size_t zn = 0;
             if (vw_parse_zoom_spec(val, zbuf, VW_MAX_ZOOMS, &zn) != 0)
             {
-                result.error = std::string("invalid --zoom spec: ") + val;
+                result.error = std::string("invalid --zoom spec (Z is 1..8): ") + val;
                 result.exit_code = 1;
                 return result;
             }

@@ -101,4 +101,16 @@ std::filesystem::path cut_output_path(const std::filesystem::path &input,
  */
 int ensure_parent_directory(const std::filesystem::path &path);
 
+/**
+ * @brief True if @p p has a `.webm` extension (ASCII case-insensitive).
+ *
+ * libx264 cannot mux into WebM; callers error on an explicit `.webm` `-o`
+ * and remap default/directory outputs to `.mp4`.
+ *
+ * @param[in] p Path to test.
+ *
+ * @return true when the extension is `.webm`.
+ */
+bool is_webm_path(const std::filesystem::path &p);
+
 } // namespace vidwizard

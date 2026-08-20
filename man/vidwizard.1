@@ -16,8 +16,9 @@ This is
 Defaults keep quality high (libx264 CRF 16, Rec.709 grayscale,
 max-compressed 32-bit PNG) and use every logical CPU core.
 Options and input paths may appear in any order.
-Several operations on one command run as one sequential filter graph
-(for example crop, then grayscale, then speed) without extra flags.
+Ranged flags are a playlist of independent looks on the source
+(later windows do not keep earlier effects).
+Whole-clip flags with no ranges currently still combine in one encode.
 Ranges are optional; omit them to apply an effect to the whole clip.
 With no arguments,
 .B vidwizard
@@ -72,7 +73,7 @@ With no
 outputs sit next to the input:
 .IR stem_gray.ext ,
 .IR stem_01.png ,
-.IR stem_cut_01.ext ,
+.IR stem_cut_1.ext ,
 .IR stem_speed.ext ,
 .IR stem_crop.ext ,
 .IR stem_rev.ext ,
@@ -118,14 +119,14 @@ with zero-pad width taken from the frame count.
 .TP
 .BI \-\-cut " RANGES"
 Extract each range as its own video
-.RI ( stem_cut_01.ext ).
+.RI ( stem_cut_1.ext ).
 .B \-\-cut
 requires at least one
 .IR START-END
 range.
 .TP
 .BI \-\-speed " FACTOR[:RANGES]"
-Forward speed multiplier (for example 1.5, 2, 2.75).
+Forward speed: a positive float (for example 0.5 slow, 2 fast).
 Audio stays in pitch unless
 .B \-\-mute
 is given.

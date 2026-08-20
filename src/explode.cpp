@@ -491,6 +491,7 @@ int explode_file(const std::filesystem::path &input, const std::filesystem::path
             return;
         }
         index++;
+        log_progress_frame(static_cast<int64_t>(index - 1ULL));
         {
             std::unique_lock<std::mutex> lock(cap_mu);
             cap_cv.wait(lock, [&]() { return inflight < cap || fail_count.load() > 0; });
@@ -596,6 +597,7 @@ int explode_file(const std::filesystem::path &input, const std::filesystem::path
     ret = 0;
 
 done:
+    log_progress_done();
     av_frame_free(&frame);
     av_frame_free(&filt);
     av_packet_free(&pkt);

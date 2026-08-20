@@ -24,7 +24,7 @@ int main(int argc, char **argv)
     if (!parsed.error.empty())
     {
         std::fprintf(stderr, "vidwizard: %s\n", parsed.error.c_str());
-        std::fprintf(stderr, "%s", usage_text());
+        std::fprintf(stderr, "Try 'vidwizard --help'.\n");
         return parsed.exit_code != 0 ? parsed.exit_code : 1;
     }
 

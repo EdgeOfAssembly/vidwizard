@@ -26,8 +26,11 @@ extern "C"
 }
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <string>
+#include <system_error>
 
 namespace vidwizard
 {
@@ -440,6 +443,12 @@ int open_video_encoder(stream_pipe *p, AVFormatContext *ofmt, unsigned jobs, int
     return 0;
 }
 
+void remove_output_file(const std::filesystem::path &output)
+{
+    std::error_code ec{};
+    std::filesystem::remove(output, ec);
+}
+
 int open_audio_encoder(stream_pipe *p, AVFormatContext *ofmt, unsigned jobs)
 {
     const AVCodec *enc = avcodec_find_encoder(AV_CODEC_ID_AAC);
@@ -536,6 +545,14 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
     int enc_w = 0;
     int enc_h = 0;
     double dur = 0.0;
+    bool wrote_output = false;
+    int64_t video_frames = 0;
+
+    if (is_webm_path(output))
+    {
+        log_error("vidwizard: cannot write libx264 to WebM; use -o file.mp4");
+        return 1;
+    }
 
     if (ensure_parent_directory(output) != 0)
     {
@@ -595,6 +612,19 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
         if (dur > 0.0 && window.end_s > dur)
         {
             window.end_s = dur;
+        }
+        if ((dur > 0.0 && window.start_s >= dur) || window.end_s <= window.start_s)
+        {
+            if (dur > 0.0 && window.start_s >= dur)
+            {
+                log_error("vidwizard: no frames in cut window (range past end of file)");
+            }
+            else
+            {
+                log_error("vidwizard: no frames in cut window");
+            }
+            ret = AVERROR(EINVAL);
+            goto fail;
         }
     }
     if (opt.crop.has_value())
@@ -698,6 +728,14 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
         }
     }
 
+    {
+        std::error_code exists_ec{};
+        if (std::filesystem::exists(output, exists_ec))
+        {
+            log_error("vidwizard: overwriting %s", output.c_str());
+        }
+    }
+
     if (!(ofmt->oformat->flags & AVFMT_NOFILE))
     {
         ret = avio_open(&ofmt->pb, output.c_str(), AVIO_FLAG_WRITE);
@@ -706,6 +744,7 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
             log_error("vidwizard: cannot write %s: %s", output.c_str(), av_err(ret).c_str());
             goto fail;
         }
+        wrote_output = true;
     }
 
     {
@@ -713,6 +752,10 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
         av_dict_set(&opts, "movflags", "+faststart", 0);
         ret = avformat_write_header(ofmt, &opts);
         av_dict_free(&opts);
+        if ((ofmt->oformat->flags & AVFMT_NOFILE) != 0)
+        {
+            wrote_output = true;
+        }
         if (ret < 0)
         {
             log_error("vidwizard: write_header: %s", av_err(ret).c_str());
@@ -800,6 +843,11 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
             {
                 goto fail;
             }
+            if (pipe->type == AVMEDIA_TYPE_VIDEO)
+            {
+                video_frames += 1;
+                log_progress_frame(video_frames);
+            }
         }
         if (window.enabled && video.past_window && (audio.dec == nullptr || audio.past_window))
         {
@@ -837,6 +885,11 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
                 {
                     goto fail;
                 }
+                if (pipe->type == AVMEDIA_TYPE_VIDEO)
+                {
+                    video_frames += 1;
+                    log_progress_frame(video_frames);
+                }
             }
             ret = filter_encode(ofmt, pipe, nullptr);
             if (ret < 0)
@@ -851,6 +904,20 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
         }
     }
 
+    if (window.enabled && video.next_pts == 0)
+    {
+        if (dur > 0.0 && window.start_s >= dur)
+        {
+            log_error("vidwizard: no frames in cut window (range past end of file)");
+        }
+        else
+        {
+            log_error("vidwizard: no frames in cut window");
+        }
+        ret = AVERROR(EINVAL);
+        goto fail;
+    }
+
     ret = av_write_trailer(ofmt);
     if (ret < 0)
     {
@@ -858,6 +925,7 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
         goto fail;
     }
 
+    log_progress_done();
     av_packet_free(&pkt);
     free_pipe(&video);
     free_pipe(&audio);
@@ -870,6 +938,7 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
     return 0;
 
 fail:
+    log_progress_done();
     av_packet_free(&pkt);
     free_pipe(&video);
     free_pipe(&audio);
@@ -884,6 +953,11 @@ fail:
             avio_closep(&ofmt->pb);
         }
         avformat_free_context(ofmt);
+        ofmt = nullptr;
+    }
+    if (wrote_output)
+    {
+        remove_output_file(output);
     }
     return 1;
 }

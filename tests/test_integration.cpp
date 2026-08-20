@@ -102,6 +102,19 @@ TEST_CASE("CLI binary unknown option is non-zero stderr", "[cli][contract]")
     std::string out;
     REQUIRE(run_cmd(b + " --definitely-not-a-flag x.mp4", &out) != 0);
     REQUIRE(out.find("unknown option") != std::string::npos);
+    REQUIRE(out.find("Try 'vidwizard --help'") != std::string::npos);
+    REQUIRE(out.find("Usage: vidwizard") == std::string::npos);
+}
+
+TEST_CASE("CLI binary --cut does not treat -o as ranges", "[cli][contract]")
+{
+    const std::string b = bin_path();
+    std::string out;
+    REQUIRE(run_cmd(b + " --cut -o x", &out) != 0);
+    REQUIRE(out.find("requires a value") != std::string::npos);
+    REQUIRE(out.find("Try 'vidwizard --help'") != std::string::npos);
+    REQUIRE(out.find("invalid cut ranges") == std::string::npos);
+    REQUIRE(out.find("Usage: vidwizard") == std::string::npos);
 }
 
 TEST_CASE("integration grayscale explode cut speed crop reverse mute", "[integration]")
@@ -193,6 +206,66 @@ TEST_CASE("stereo speed keeps pitch-preserving audio", "[integration]")
                     &probe) == 0);
     REQUIRE(probe.find("audio") != std::string::npos);
     REQUIRE(probe.find("2") != std::string::npos);
+}
+
+TEST_CASE("past-EOF cut fails and does not leave a stub", "[integration]")
+{
+    const fs::path clip = "testdata/clip.mp4";
+    if (!fs::exists(clip))
+    {
+        SKIP("testdata fixtures missing (run make testdata)");
+    }
+
+    const std::string b = bin_path();
+    const fs::path outdir = "testdata/out";
+    fs::create_directories(outdir);
+    const fs::path out = outdir / "past_eof.mp4";
+    fs::remove(out);
+
+    std::string log;
+    REQUIRE(run_cmd(b + " --cut 50-60 " + clip.string() + " -o " + out.string(), &log) != 0);
+    REQUIRE(log.find("no frames") != std::string::npos);
+    REQUIRE(log.find("past end") != std::string::npos);
+    REQUIRE_FALSE(fs::exists(out));
+}
+
+TEST_CASE("explicit webm output is an error and leaves no stub", "[integration]")
+{
+    const fs::path clip = "testdata/clip.mp4";
+    if (!fs::exists(clip))
+    {
+        SKIP("testdata fixtures missing (run make testdata)");
+    }
+
+    const std::string b = bin_path();
+    const fs::path outdir = "testdata/out";
+    fs::create_directories(outdir);
+    const fs::path out = outdir / "explicit.webm";
+    fs::remove(out);
+
+    std::string log;
+    REQUIRE(run_cmd(b + " --grayscale " + clip.string() + " -o " + out.string(), &log) != 0);
+    REQUIRE(log.find("cannot write libx264 to WebM") != std::string::npos);
+    REQUIRE_FALSE(fs::exists(out));
+}
+
+TEST_CASE("explode and cut both ranged is an error", "[integration]")
+{
+    const fs::path clip = "testdata/clip.mp4";
+    if (!fs::exists(clip))
+    {
+        SKIP("testdata fixtures missing (run make testdata)");
+    }
+
+    const std::string b = bin_path();
+    const fs::path outdir = "testdata/out/both_ranged";
+    fs::remove_all(outdir);
+
+    std::string log;
+    REQUIRE(run_cmd(b + " --explode 0-1 --cut 0-1 " + clip.string() + " -o " + outdir.string() + "/",
+                    &log) != 0);
+    REQUIRE(log.find("cannot combine") != std::string::npos);
+    REQUIRE_FALSE(fs::exists(outdir));
 }
 
 TEST_CASE("ffprobe crop size and mute has no audio", "[integration]")

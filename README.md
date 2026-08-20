@@ -100,7 +100,7 @@ make -s V=0 -j$(nproc) release   # bin/release/vidwizard
 | `-o`, `--output PATH` | Output file or directory |
 | `--grayscale[=RANGES]` | Grayscale → `clip_gray.mp4` |
 | `--explode[=RANGES]` | Lossless PNG frames → `clip_01.png` … |
-| `--cut RANGES` | Each window as its own video → `clip_cut_01.mp4` |
+| `--cut RANGES` | Each window as its own video → `clip_cut_1.mp4` |
 | `--speed FACTOR[:RANGES]` | Forward speed; audio stays in pitch → `clip_speed.mp4` |
 | `--crop GEOM[:RANGES]` | Crop `WxH+X+Y` or `W:H:X:Y` (`WxH` = centred) → `clip_crop.mp4` |
 | `--reverse[=RANGES]` | Reverse whole clip or windows in place → `clip_rev.mp4` |

@@ -43,7 +43,24 @@ std::filesystem::path with_suffix(const std::filesystem::path &input, const std:
     return parent / (stem + suffix + ext);
 }
 
+std::filesystem::path remap_webm_to_mp4(const std::filesystem::path &p)
+{
+    if (lower_ext(p) != ".webm")
+    {
+        return p;
+    }
+    std::filesystem::path out = p;
+    out.replace_extension(".mp4");
+    log_error("vidwizard: warning: writing %s (libx264 cannot mux into WebM)", out.c_str());
+    return out;
+}
+
 } // namespace
+
+bool is_webm_path(const std::filesystem::path &p)
+{
+    return lower_ext(p) == ".webm";
+}
 
 bool is_video_file(const std::filesystem::path &p)
 {
@@ -135,7 +152,7 @@ std::filesystem::path default_video_output(const std::filesystem::path &input,
     const std::string suffix = default_suffix(opt);
     if (!output_opt.has_value())
     {
-        return with_suffix(input, suffix);
+        return remap_webm_to_mp4(with_suffix(input, suffix));
     }
 
     const std::filesystem::path &o = *output_opt;
@@ -143,7 +160,7 @@ std::filesystem::path default_video_output(const std::filesystem::path &input,
     {
         std::error_code ec;
         std::filesystem::create_directories(o, ec);
-        return o / (input.stem().string() + suffix + input.extension().string());
+        return remap_webm_to_mp4(o / (input.stem().string() + suffix + input.extension().string()));
     }
 
     if (input_count > 1)
@@ -201,7 +218,7 @@ std::filesystem::path cut_output_path(const std::filesystem::path &input,
 
     if (!output_opt.has_value())
     {
-        return input.parent_path() / name;
+        return remap_webm_to_mp4(input.parent_path() / name);
     }
 
     const std::filesystem::path &o = *output_opt;
@@ -211,7 +228,7 @@ std::filesystem::path cut_output_path(const std::filesystem::path &input,
         {
             std::error_code ec;
             std::filesystem::create_directories(o, ec);
-            return o / name;
+            return remap_webm_to_mp4(o / name);
         }
         if (cut_count > 1U && input_count <= 1)
         {
@@ -227,7 +244,7 @@ std::filesystem::path cut_output_path(const std::filesystem::path &input,
         return o;
     }
 
-    return o.parent_path() / name;
+    return remap_webm_to_mp4(o.parent_path() / name);
 }
 
 int ensure_parent_directory(const std::filesystem::path &path)

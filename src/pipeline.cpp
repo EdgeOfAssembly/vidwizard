@@ -21,6 +21,12 @@ namespace vidwizard
 int process_one(const cli_options &opt, const std::filesystem::path &input,
                 std::size_t input_count)
 {
+    if (opt.explode && opt.cut && !opt.explode_ranges.empty() && !opt.cut_ranges.empty())
+    {
+        log_error("vidwizard: cannot combine --explode and --cut when both have ranges");
+        return 1;
+    }
+
     const unsigned jobs = resolve_jobs(opt.jobs);
 
     if (opt.explode)
@@ -99,6 +105,11 @@ int run_pipeline(const cli_options &opt)
     {
         log_error("vidwizard: specify an operation (--grayscale, --explode, --cut, --speed, "
                   "--crop, --reverse, --mute, --zoom, --text)");
+        return 1;
+    }
+    if (opt.explode && opt.cut && !opt.explode_ranges.empty() && !opt.cut_ranges.empty())
+    {
+        log_error("vidwizard: cannot combine --explode and --cut when both have ranges");
         return 1;
     }
 

@@ -38,3 +38,21 @@ TEST_CASE("cut output padded index")
     const auto b = vidwizard::cut_output_path("clip.mp4", std::nullopt, 1, 2, 12, "_cut");
     REQUIRE(b.filename() == "clip_cut_02.mp4");
 }
+
+TEST_CASE("default and cut outputs remap webm input to mp4")
+{
+    vidwizard::cli_options opt{};
+    opt.grayscale = true;
+    const auto p = vidwizard::default_video_output("dir/clip.webm", opt, std::nullopt, 1);
+    REQUIRE(p.filename() == "clip_gray.mp4");
+    REQUIRE(vidwizard::is_webm_path("out.webm"));
+    REQUIRE(vidwizard::is_webm_path("OUT.WEBM"));
+    REQUIRE_FALSE(vidwizard::is_webm_path("out.mp4"));
+
+    const auto explicit_webm = vidwizard::default_video_output(
+        "dir/clip.mp4", opt, std::optional<std::filesystem::path>{"out.webm"}, 1);
+    REQUIRE(explicit_webm == std::filesystem::path("out.webm"));
+
+    const auto cut = vidwizard::cut_output_path("clip.webm", std::nullopt, 1, 1, 1, "_cut");
+    REQUIRE(cut.filename() == "clip_cut_1.mp4");
+}

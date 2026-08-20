@@ -7,11 +7,27 @@ Not in 0.4.0-alpha. Same CLI shape when we add flags: optional
 
 1. **Playlist vs `--overlap`** (below): default independent looks;
    markers for cumulative stack. Golden frames for both.
-2. **`--dry-run`** (print outputs / graph, encode nothing) and clearer progress.
+2. **`--dry-run`** (print outputs / graph, encode nothing).
 3. Stream-copy `--cut` / whole `--mute` when pixels need not change.
 4. `--reverse` without holding the whole window in RAM, or a hard refuse.
 5. Cheap looks: `--mirror`, `--blur`, `--fade` — not stabilize/shake/infra yet.
 6. Profile a 1080p clip (`make -s V=0 -j$(nproc) profile`) before optimizing.
+
+### Blind-trial follow-ups (2026-08-21)
+
+Fixed in tree (static `--text`/drawtext+freetype+harfbuzz; no full-help
+on errors; `--cut -o` no longer eaten; past-EOF cut fails and deletes
+stub; WebM+x264 errors or remaps to `.mp4`; explode+cut both ranged is
+an error; quiet `frame N` progress; help matches playlist wording).
+
+Still open:
+
+- Join/concat two clips into one timeline.
+- Quality/CRF knob (high-quality default grew a 1 MB source to ~3 MB).
+- Default output is **next to the input**, not cwd — keep or change?
+- `--cut` to the same `-o` dir still overwrites `*_cut_1` (now warns).
+- `--text-style italic`.
+- `--explode` vs `--cut` when only one has ranges (explode still wins).
 
 Do not grow a NLE. 1.0 should feel finished, not full.
 

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdarg>
+#include <cstdint>
 #include <filesystem>
 
 namespace vidwizard
@@ -52,5 +53,26 @@ void log_verbose(const char *fmt, ...);
  * @param[in] args Variable arguments.
  */
 void log_errorv(const char *fmt, va_list args);
+
+/**
+ * @brief Rate-limited in-place progress (`vidwizard: frame N`) on stderr.
+ *
+ * Overwrites the previous progress line with a carriage return. Prints at
+ * most about once per second (the first frame always prints). Call
+ * log_progress_done() when the operation finishes.
+ *
+ * @param[in] frame 1-based frame count so far.
+ *
+ * @thread_safety Serialized with other log_* calls.
+ */
+void log_progress_frame(int64_t frame);
+
+/**
+ * @brief Finish an in-place progress line (final count + newline).
+ *
+ * Safe to call when no progress was printed. A following log_error() also
+ * ends the line so diagnostics are not stuck on the progress row.
+ */
+void log_progress_done(void);
 
 } // namespace vidwizard
