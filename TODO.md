@@ -8,7 +8,7 @@ flags on one command.
 
 | Flag (sketch) | What |
 |---------------|------|
-| `--mirror` / `--mirror=h\|v\|both` | Flip the picture (Predator-style hunt cam often feels mirrored). |
+| `--mirror` / `--mirror=h\|v\|both` | Flip the picture horizontally, vertically, or both. |
 | `--infra` / `--infravision` | Heat-vision look: false-color LUT, crush mids, maybe scanlines. |
 | `--blur FACTOR[:RANGES]` | Gaussian / box blur; ranged for “go soft then snap back”. |
 | `--sharpen` | Unsharp / cas. |

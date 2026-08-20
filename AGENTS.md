@@ -8,7 +8,7 @@ C++23 command-line video editor using FFmpeg 8 libraries (`libav*`).
 make -s V=0 -j$(nproc)          # debug + ASan/UBSan (default)
 make -s test                    # Catch2 + fixtures (alias: make tests)
 make -s verify                  # CBMC on parse_time.c (after test)
-make -s BUILD=release all
+make -s V=0 -j$(nproc) release  # bin/release/vidwizard
 make static                     # fully static musl binary via /mnt/alpine
 ```
 

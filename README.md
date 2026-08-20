@@ -18,13 +18,28 @@ optional.
 
 ## Quick start
 
+Sample output: [`examples/catwalk-demo.mp4`](examples/catwalk-demo.mp4)
+(zoom in/out, grayscale, a real face crop, speed, reverse, labeled).
+
 ```text
-vidwizard                  # usage (same as -h / --help)
-vidwizard -v               # version (never verbose)
-vidwizard clip.mp4 --grayscale
+vidwizard catwalk.mp4 -o cat_demo.mp4 \
+  --zoom='1-2.35@0.50,0.40:2.0-4.0;2.35-1@0.50,0.40:4.0-5.5' \
+  --grayscale=5.5-7.5 \
+  --crop=280x200+180+8:7.5-9.2 \
+  --speed=2.2:14-16 \
+  --reverse=16- \
+  --text 'Zoom in:2-4' \
+  --text 'Zoom out:4-5.5' \
+  --text 'Grayscale:5.5-7.5' \
+  --text 'Crop:7.5-9.2+196+16' \
+  --text 'Speed:14-16' \
+  --text 'Reverse:16-' \
+  --text-bg 000000c0 \
+  --text-size 32
 ```
 
-`-v` / `--version` print the version. Extra progress is `--verbose` on
+No arguments prints usage (same as `-h` / `--help`). `-v` / `--version`
+print the version (never verbose). Extra progress is `--verbose` on
 stderr. Options and inputs may appear in any order. `-o` is one target
 (file or directory). Directory inputs expand to common video types;
 there is no `--batch` flag.
@@ -56,7 +71,7 @@ sudo make install          # /usr/local/bin/vidwizard and man 1
 Default `make` is debug + ASan/UBSan. For an optimized binary:
 
 ```text
-make -s BUILD=release all  # bin/release/vidwizard
+make -s V=0 -j$(nproc) release   # bin/release/vidwizard
 ```
 
 ## Flags
@@ -152,27 +167,6 @@ vidwizard clip.mp4 \
   --text-size 32
 ```
 
-## Catwalk demo
-
-Sample output: [`examples/catwalk-demo.mp4`](examples/catwalk-demo.mp4).
-
-```text
-vidwizard catwalk.mp4 -o cat_demo.mp4 \
-  --zoom='1-2.35@0.50,0.40:2.0-4.0;2.35-1@0.50,0.40:4.0-5.5' \
-  --grayscale=5.5-7.5 \
-  --crop=280x200+180+8:7.5-9.2 \
-  --speed=2.2:14-16 \
-  --reverse=16- \
-  --text 'Zoom in:2-4' \
-  --text 'Zoom out:4-5.5' \
-  --text 'Grayscale:5.5-7.5' \
-  --text 'Crop:7.5-9.2+196+16' \
-  --text 'Speed:14-16' \
-  --text 'Reverse:16-' \
-  --text-bg 000000c0 \
-  --text-size 32
-```
-
 `--reverse` holds the selected frames in RAM (short clips are fine; a
 long 4K reverse can use a lot of memory).
 
@@ -185,7 +179,7 @@ make -s test
 
 `make test` (alias `make tests`) runs Catch2 plus generated fixtures.
 `make verify` runs CBMC on the time-range parser after tests.
-`make -s BUILD=release all` builds `bin/release/vidwizard`.
+`make -s V=0 -j$(nproc) release` builds `bin/release/vidwizard`.
 
 Optional network smoke (yt-dlp):
 
