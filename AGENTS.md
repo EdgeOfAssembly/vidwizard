@@ -9,6 +9,7 @@ make -s V=0 -j$(nproc)          # debug + ASan/UBSan (default)
 make -s test                    # Catch2 + fixtures (alias: make tests)
 make -s verify                  # CBMC on parse_time.c (after test)
 make -s BUILD=release all
+make static                     # fully static musl binary via /mnt/alpine
 ```
 
 Compiler is **g++/gcc** only (`gnu++23` / `gnu23`).

@@ -1,5 +1,6 @@
 # vidwizard — C++23 / gnu++23, gcc/g++ only.
 # Default: debug + ASan/UBSan.  make release  /  make profile  /  make test  /  make verify
+# Fully static musl binary: make static  (Alpine chroot; see scripts/build-static-alpine.sh)
 
 CXX ?= g++
 CC  ?= gcc
@@ -54,6 +55,16 @@ else ifeq ($(BUILD),profile)
   CXXFLAGS := $(CXXFLAGS_PROFILE)
   CFLAGS   := $(CFLAGS_PROFILE)
   LDFLAGS  := $(LDFLAGS_PROFILE)
+else ifeq ($(BUILD),static)
+  # Intended for musl/Alpine with static libav (scripts/build-static-alpine.sh).
+  # -fno-pie -no-pie: Alpine gcc defaults to PIE, which turns -static into
+  # static-pie (file(1) "static-pie linked"). User-facing artifact is classic
+  # ET_EXEC fully static (no INTERP, no DT_NEEDED).
+  CXXFLAGS := $(CXXFLAGS_RELEASE) -fno-pie
+  CFLAGS   := $(CFLAGS_RELEASE) -fno-pie
+  LDFLAGS  := -static -static-libgcc -static-libstdc++ -no-pie -pthread \
+              -Wl,--build-id=none -Wl,--gc-sections
+  FFMPEG_LIBS := -Wl,--start-group $(shell pkg-config --static --libs $(FFMPEG_PKGS)) -Wl,--end-group
 else
   CXXFLAGS := $(CXXFLAGS_DEBUG)
   CFLAGS   := $(CFLAGS_DEBUG)
@@ -80,7 +91,7 @@ TEST_BIN  := $(BINDIR)/run_tests
 BUILD_FLAGS := -s V=0 -j$(shell nproc 2>/dev/null || echo 1)
 
 .PHONY: all clean release profile test tests verify tags man install \
-        testdata compile_flags
+        testdata compile_flags static
 
 all: $(TARGET)
 
@@ -104,7 +115,9 @@ $(BUILDDIR)/tests/%.o: tests/%.cpp
 $(TARGET): $(LIB_OBJS) $(MAIN_OBJ)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@ $(FFMPEG_LIBS)
+ifneq ($(BUILD),static)
 	@ln -sfn $(TARGET) vidwizard
+endif
 
 $(TEST_BIN): $(LIB_OBJS) $(TEST_OBJS)
 	@mkdir -p $(dir $@)
@@ -150,6 +163,10 @@ profile:
 	$(MAKE) $(BUILD_FLAGS) clean
 	$(MAKE) $(BUILD_FLAGS) BUILD=profile all
 	@echo "Profile binary built: bin/profile/vidwizard"
+
+# Fully static musl binary via /mnt/alpine. Does not change the default debug build.
+static:
+	./scripts/build-static-alpine.sh
 
 tags:
 	ctags -R --languages=C,C++ --exclude=.git --exclude=build --exclude=bin -f tags .
