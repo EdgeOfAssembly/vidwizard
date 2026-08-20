@@ -77,51 +77,80 @@ Left-to-right mode switches (order matters **only** around markers):
 | (default) / `--sequential` | Playlist: each effect is independent on the source for its range. |
 | `--overlap` | Cumulative: following effects stack on the same feed; they share timing (see below). |
 
-Sketch:
+Worked example (locked):
 
 ```text
-vidwizard in.mp4 \
-  --grayscale=0-5 \
-  --overlap --crop 160x120 --reverse \
-  --sequential --mirror=10-
+vidwizard in.mp4 --grayscale=0-5 --overlap --crop 160x120 --reverse --sequential --mirror=10-
 ```
 
-Read as:
+| Time | Picture |
+|------|---------|
+| 0–5s | Grayscale on the **original** (playlist). |
+| 5–10s | `--overlap`: **crop and reverse stacked** on one feed. No range on those flags → group **starts when grayscale ends (5s)** and **runs until the next sequential item (10s)**. |
+| 10s–EOF | `--sequential --mirror=10-`: mirror on the **original**. Crop/reverse **do not stick**. They are nullified. |
 
-1. Playlist: grayscale on original, 0–5s (then source again).
-2. `--overlap`: crop **and** reverse compose on one feed. Timing: inherit
-   the previous playlist item’s **end** as start unless a range is given
-   (`--crop` here has no range → starts at 5s, stacked with reverse).
-3. `--sequential`: back to independent; `--mirror=10-` is its own look
-   on the original from 10s.
+`--sequential` **ends** the overlap group. The next playlist item is a
+fresh look at the source, same as the catwalk gray-then-colour-crop.
+If crop/reverse kept going under the mirror, `--sequential` would mean
+nothing.
 
-Same command may mix **both** playlist entries and one or more overlap
-groups. That is the point.
+To keep a stack into later time, **omit `--sequential`**. Effects after
+`--overlap` stay on that feed; a later `--mirror=10-` **adds** mirror on
+top of crop+reverse from 10s onward (crop/reverse still stick).
 
-### Timing rules (keep this small)
+```text
+vidwizard in.mp4 --grayscale=0-5 --overlap --crop 160x120 --reverse --mirror=10-
+```
+
+| Time | Picture |
+|------|---------|
+| 0–5s | Grayscale on original (still a playlist item: it is **before** `--overlap`). |
+| 5–10s | Crop + reverse stacked. |
+| 10s–EOF | Crop + reverse **still on**, plus mirror. |
+
+That is the “drop `--sequential`” story: the overlap group never ended.
+
+**Caveat:** grayscale in that command is *not* in the overlap group, so
+it still ends at 5s (colour crop+reverse, then mirrored). For
+**cropped-grayscale + mirror** on one feed, put gray **inside** the
+group:
+
+```text
+vidwizard in.mp4 --overlap --grayscale=0-5 --crop 160x120 --reverse --mirror=10-
+```
+
+No `--sequential` → nothing nullifies the stack; mirror at 10s is extra
+on the same cumulative picture.
+
+Same command may mix playlist entries and overlap groups. That is the
+point.
+
+### Timing rules (locked)
 
 - Playlist items: range on the flag, or whole clip if omitted (see
   whole-clip caveat above).
-- After `--overlap`, flags **inherit the previous item’s window** unless
-  they specify their own range. If the previous item was `0-5`, overlap
-  crop+reverse default to **5s onward** (start after that playlist
-  entry) *or* the same window — **pick one and document it**.  
-  Preferred for “stack on the same beat”: **same window as previous**.  
-  Preferred for “then a stacked segment”: **start at previous end**.  
-  These two are different; 1.0 should not silently mean both. Decide
-  with a second marker if needed (`--overlap` = same window,
-  `--then --overlap` = start after previous end).
-- `--sequential` clears inherit/stack state.
+- `--overlap` group with **no** ranges on its flags: **starts at the
+  previous item’s end**, **ends at the next `--sequential` item’s
+  start** (or EOF if none). That matches the example (5s–10s).
+- `--overlap` plus an explicit range on a flag: that range wins for
+  that flag (still stacked with the rest of the group on the
+  intersection — specify this in implementation tests).
+- `--sequential` clears stack state. Following effects are independent
+  on the source; they **nullify** the previous overlap feed.
+- Same-window stacking (gray *and* crop *during* 0–5s) is a different
+  request: put `--overlap` **before** those flags and give them the
+  **same** range, e.g. `--overlap --grayscale=0-5 --crop 160x120`.
+  Do not overload the example’s “after gray, until mirror” meaning.
 
 ### Why this is still hard (honest)
 
 - Markers make **flag order** matter next to `--overlap` / `--sequential`.
   Rest of the CLI can stay order-independent.
-- “Same window” vs “start after previous” must not be fudged.
 - Implementation: playlist slices each get `source → that effect`;
   overlap groups get `source → effect1 → effect2 → …` for that slice,
   then concat. Golden frames: demo-style gray then colour crop
-  (independent); gray∩crop under `--overlap` (stacked).
+  (independent); `--overlap` crop+reverse 5–10 then colour mirror
+  (stack does not leak past `--sequential`).
 
 ### Not this (rejected as default)
 
