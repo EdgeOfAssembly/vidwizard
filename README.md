@@ -73,6 +73,8 @@ scripts/fetch-test-clip.sh
 ./vidwizard testdata/net/netclip.* --grayscale -o testdata/net/gray.mp4
 ```
 
+Later ideas (mirror, infravision, blur, …): `TODO.md`.
+
 ## License
 
 Use as you wish in this workspace.
