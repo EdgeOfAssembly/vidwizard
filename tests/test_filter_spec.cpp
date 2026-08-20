@@ -52,6 +52,22 @@ TEST_CASE("ranged reverse uses split concat")
     REQUIRE(g.video.find("reverse") != std::string::npos);
 }
 
+TEST_CASE("ranged crop pads black not scale")
+{
+    vidwizard::cli_options opt{};
+    vw_crop crop{};
+    crop.width = 160;
+    crop.height = 120;
+    crop.x = 80;
+    crop.y = 40;
+    opt.crop = crop;
+    opt.crop_ranges.push_back(vw_range{0.5, 1.5});
+    const auto g = vidwizard::build_filter_graphs(opt, {}, 320, 240, 2.0, &crop, 10, 1);
+    REQUIRE(g.video.find("crop=160:120:80:40") != std::string::npos);
+    REQUIRE(g.video.find("pad=320:240:80:40:black") != std::string::npos);
+    REQUIRE(g.video.find("scale=320:240") == std::string::npos);
+}
+
 TEST_CASE("text overlay uses drawtext")
 {
     vidwizard::cli_options opt{};

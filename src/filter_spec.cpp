@@ -191,10 +191,11 @@ std::string video_effects(const segment &s, const vw_crop *crop, int src_w, int 
     }
     else if (s.crop && crop != nullptr)
     {
+        /* Real crop: keep the rectangle, pad the rest black (not a zoom). */
         parts.push_back(crop_filter(*crop));
-        char scale[80];
-        std::snprintf(scale, sizeof(scale), "scale=%d:%d:flags=lanczos+accurate_rnd", src_w, src_h);
-        parts.push_back(scale);
+        char pad[96];
+        std::snprintf(pad, sizeof(pad), "pad=%d:%d:%d:%d:black", src_w, src_h, crop->x, crop->y);
+        parts.push_back(pad);
     }
     if (include_gray && s.gray)
     {

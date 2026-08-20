@@ -66,7 +66,7 @@ std::string grayscale_filter(const std::vector<vw_range> &ranges);
  *
  * @param[in] opt     CLI operations.
  * @param[in] window  Optional cut window (frames outside are not fed).
- * @param[in] src_w   Source width (for ranged crop scale-back).
+ * @param[in] src_w   Source width (for ranged crop pad-back).
  * @param[in] src_h   Source height.
  * @param[in] duration_s Known duration (0 if unknown).
  * @param[in] crop_resolved Crop with x/y filled (centered already applied).
