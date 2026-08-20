@@ -1,4 +1,4 @@
-.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.4" "User Commands"
+.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.4.0-alpha" "User Commands"
 .SH NAME
 vidwizard \- high-quality command-line video edits
 .SH SYNOPSIS
@@ -7,10 +7,20 @@ vidwizard \- high-quality command-line video edits
 .IR inputs ...
 .SH DESCRIPTION
 .B vidwizard
-applies common video-editor operations from the command line using the FFmpeg
-libraries.
-Defaults keep quality high (libx264 CRF 16, Rec.709 grayscale, max-compressed
-32-bit PNG) and use every logical CPU core.
+is a command-line video editor built on the FFmpeg 8 libraries
+.RI ( libav* ).
+Think of it as ImageMagick
+.B convert
+for video: name the file, name the effect, get a high-quality result
+without a GUI.
+.PP
+This is
+.BR 0.4.0-alpha .
+The CLI is meant to stay stable; treat edge cases and encoder details as
+still moving.
+.PP
+Defaults keep quality high (libx264 CRF 16, Rec.709 grayscale,
+max-compressed 32-bit PNG) and use every logical CPU core.
 Options and input paths may appear in any order.
 Several operations on one command run as one sequential filter graph
 (for example crop, then grayscale, then speed) without extra flags.
@@ -21,10 +31,21 @@ prints the same help as
 .B \-h
 and exits 0.
 .PP
+Input directories expand (non-recursively) to common video types.
+There is no
+.B \-\-batch
+flag.
+.B \-v
+/
+.B \-\-version
+print the version;
+.B \-\-verbose
+is extra progress on stderr.
+.SS Time ranges
 Time ranges are
-.I START-END,START-END,...
+.IR START-END,START-END,...
 An open end
-.RI ( 10- ", " 1:00- )
+.RI ( 10- ", " 1:00- ", " 5:00- )
 runs to the end of the clip.
 An open start
 .RI ( \-20 )
@@ -36,40 +57,81 @@ or
 .IR HH:MM:SS
 (fractions allowed).
 Empty ranges mean the whole timeline.
+.SS Crop versus zoom
+.B \-\-crop
+keeps a pixel rectangle.
+A whole-clip crop changes the output resolution.
+A
+.I ranged
+crop keeps that rectangle and pads the rest of the frame black; it does
+.B not
+zoom.
+Output size stays the source size for a ranged crop.
 .PP
+.B \-\-zoom
+is a Ken Burns fill-frame zoom: the picture scales around a normalized
+center while the output stays the source resolution.
+.SS Reverse and memory
 .B \-\-reverse
-buffers the selected frames in memory (fine for short clips; huge files
-may need a lot of RAM).
+buffers the selected frames in memory.
+That is fine for short clips; a long 4K reverse can need a lot of RAM.
+.SS Default output names
+With no
+.BR \-o ,
+outputs sit next to the input:
+.IR stem_gray.ext ,
+.IR stem_01.png ,
+.IR stem_cut_01.ext ,
+.IR stem_speed.ext ,
+.IR stem_crop.ext ,
+.IR stem_rev.ext ,
+.IR stem_mute.ext ,
+.IR stem_zoom.ext ,
+.IR stem_text.ext ,
+or
+.I stem_edit.ext
+when combining operations.
+PNG index width matches the frame count (20 frames → 01..20;
+1000 frames → 0001..1000).
 .SH OPTIONS
 .TP
 .BR \-h ", " \-\-help
 Show help and exit.
+Printed automatically when
+.B vidwizard
+is invoked with no arguments.
 .TP
 .BR \-v ", " \-\-version
 Show version and exit.
-Never used for verbose mode.
+Never used for verbose mode (see
+.BR \-\-verbose ).
 .TP
 .BI \-o ", " \-\-output " PATH"
-Single output file or directory.
+Single output file or directory (may be given only once).
 One input plus a file path uses that exact name.
 Several inputs plus a file path warn and write
-.I outstem_instem.ext .
-A directory (existing, trailing slash, or created) receives default-named
-outputs.
+.IR outstem_instem.ext .
+A directory (existing, trailing slash, or created) receives
+default-named outputs.
 .TP
 .BR \-\-grayscale [ =RANGES ]
 High-quality Rec.709 grayscale.
 Optional ranges apply the effect only in those windows.
 .TP
 .BR \-\-explode [ =RANGES ]
-Write lossless 32-bit RGBA PNG frames with zlib level 9 and mixed prediction.
+Write lossless 32-bit RGBA PNG frames with zlib level 9 and mixed
+prediction.
 Names are
 .I stem_0001.png
-with zero-pad width taken from the frame count (20 frames → 01..20).
+with zero-pad width taken from the frame count.
 .TP
 .BI \-\-cut " RANGES"
 Extract each range as its own video
 .RI ( stem_cut_01.ext ).
+.B \-\-cut
+requires at least one
+.IR START-END
+range.
 .TP
 .BI \-\-speed " FACTOR[:RANGES]"
 Forward speed multiplier (for example 1.5, 2, 2.75).
@@ -83,22 +145,31 @@ Optional ranges speed only those windows; the rest stays 1×.
 .BI \-\-crop " GEOM[:RANGES]"
 Crop
 .I WxH+X+Y
-or
-.IR W:H:X:Y .
+(ImageMagick) or
+.IR W:H:X:Y
+(FFmpeg).
 .I WxH
 or
 .I W:H
 crops from the centre.
-Ranged crop keeps that rectangle and pads the rest black (it does not zoom).
+Ranged crop keeps that rectangle and pads the rest black (it does not
+zoom).
+See
+.B Crop versus zoom
+above.
 .TP
 .BR \-\-reverse [ =RANGES ]
 Reverse the whole video, or reverse listed windows in place.
+Buffers frames in RAM (see
+.B Reverse and memory
+above).
 .TP
 .BR \-\-mute [ =RANGES ]
 Drop all audio, or silence the listed windows (audio stream kept).
 .TP
 .BI \-\-zoom " SPEC"
-Animated zoom (Ken Burns). Each segment is
+Animated Ken Burns zoom.
+Each segment is
 .IR Z0[-Z1][@CX,CY][:RANGE]
 separated by
 .BR ; .
@@ -107,8 +178,7 @@ is 1..8 (1 = no zoom).
 .I CX,CY
 are normalized 0..1 (default 0.5,0.5).
 .I Z0-Z1
-animates over the range;
-a single
+animates over the range; a single
 .I Z
 holds that factor.
 Example:
@@ -119,25 +189,52 @@ Repeatable overlay.
 .I SPEC
 is
 .IR TEXT[:RANGE][+X+Y] .
-Default origin is 0,0 (top-left), bold white on a transparent background.
+Range and position are parsed from the right so the label may contain
+colons.
+Default origin is 0,0 (top-left), bold white on a transparent
+background.
+Font, style, size, color, and box apply to every
+.B \-\-text
+on the command.
 .TP
 .BI \-\-text-font " PATH"
-.TQ
+Font file.
+Default is DejaVu Sans Bold if installed
+.RI ( /usr/share/fonts/dejavu/DejaVuSans-Bold.ttf ).
+.TP
 .BI \-\-text-style " bold|regular"
-.TQ
+Weight.
+Default
+.BR bold .
+.TP
 .BI \-\-text-size " N"
-.TQ
-.BI \-\-text-color " RRGGBB"
-.TQ
-.BI \-\-text-bg " RRGGBB"
-Solid box color (6 or 8 hex digits). Omit for transparent.
+Font size in pixels.
+Integer 8..512.
+Default 28.
+.TP
+.BI \-\-text-color " RRGGBB[AA]"
+Text fill as 6 or 8 hex digits (optional leading
+.BR # ).
+Default
+.BR FFFFFF .
+.TP
+.BI \-\-text-bg " RRGGBB[AA]"
+Solid box color (6 or 8 hex digits, optional leading
+.BR # ).
+Omit for a transparent background.
+Eight digits include alpha (for example
+.B 000000c0
+is a translucent black box).
 .TP
 .BI \-\-jobs " N"
 Worker/encoder threads.
+Integer >= 1.
 Default: all logical cores.
 .TP
 .B \-\-verbose
 Extra progress on stderr.
+Never
+.BR \-v .
 .TP
 .BI \-\-log-file " PATH"
 Also write diagnostics to
@@ -153,13 +250,13 @@ Usage error or no usable inputs.
 .B 2
 One or more inputs failed to process.
 .SH EXAMPLES
-Grayscale a file (writes
+Whole-clip grayscale (writes
 .IR clip_gray.mp4 ):
 .RS
 .B vidwizard clip.mp4 \-\-grayscale
 .RE
 .PP
-Explode frames:
+Explode lossless PNG frames:
 .RS
 .B vidwizard clip.mp4 \-\-explode
 .RE
@@ -169,7 +266,7 @@ Cut two parts:
 .B vidwizard clip.mp4 \-\-cut 10-20,1:00-1:30
 .RE
 .PP
-Speed up two windows by 2.75×:
+Speed up two windows by 2.75× (audio keeps pitch):
 .RS
 .B vidwizard clip.mp4 \-\-speed 2.75:10-20,30-40
 .RE
@@ -188,8 +285,57 @@ Grayscale from five minutes to the end:
 .RS
 .B vidwizard clip.mp4 \-\-grayscale 5:00-
 .RE
+.PP
+Zoom in, then zoom out (Ken Burns, fill-frame):
+.RS
+.EX
+vidwizard clip.mp4 \\
+  --zoom '1-2.35@0.50,0.40:2.0-4.0;2.35-1@0.50,0.40:4.0-5.5'
+.EE
+.RE
+.PP
+Repeatable text with a time window and a pixel origin:
+.RS
+.EX
+vidwizard clip.mp4 \\
+  --text 'Zoom in:2-4' \\
+  --text 'Crop:7.5-9.2+196+16'
+.EE
+.RE
+.PP
+Catwalk demo (sample output:
+.IR examples/catwalk-demo.mp4 ):
+.RS
+.EX
+vidwizard catwalk.mp4 -o cat_demo.mp4 \\
+  --zoom='1-2.35@0.50,0.40:2.0-4.0;2.35-1@0.50,0.40:4.0-5.5' \\
+  --grayscale=5.5-7.5 \\
+  --crop=280x200+180+8:7.5-9.2 \\
+  --speed=2.2:14-16 \\
+  --reverse=16- \\
+  --text 'Zoom in:2-4' \\
+  --text 'Zoom out:4-5.5' \\
+  --text 'Grayscale:5.5-7.5' \\
+  --text 'Crop:7.5-9.2+196+16' \\
+  --text 'Speed:14-16' \\
+  --text 'Reverse:16-' \\
+  --text-bg 000000c0 \\
+  --text-size 32
+.EE
+.RE
+.SH NOTES
+Video is encoded with libx264 (CRF 16, medium preset, yuv420p).
+Audio is AAC.
+.B \-\-explode
+writes 32-bit RGBA PNG.
+.PP
+.B \-\-reverse
+holds selected frames in RAM.
+Prefer short windows on large files.
 .SH SEE ALSO
 .BR ffmpeg (1),
 .BR ffprobe (1)
 .SH AUTHORS
 Written for the vidwizard project.
+.SH COPYRIGHT
+Use as you wish (public-domain / CC0-style).

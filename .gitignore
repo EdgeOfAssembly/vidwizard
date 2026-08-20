@@ -16,6 +16,8 @@ profile.txt
 /testdata/out/
 *.mp4
 !testdata/golden/**
+!examples/*.mp4
+/dist/
 .cache/
 doxygen/
 html/

@@ -143,7 +143,7 @@ TEST_CASE("usage text contains required interface")
     REQUIRE(std::string(u).find("-h, --help") != std::string::npos);
     REQUIRE(std::string(u).find("-v, --version") != std::string::npos);
     REQUIRE(std::string(u).find("--verbose") != std::string::npos);
-    REQUIRE(std::string(u).find("vidwizard 0.4") != std::string::npos);
+    REQUIRE(std::string(u).find("vidwizard 0.4.0-alpha") != std::string::npos);
     REQUIRE(std::string(u).find("--zoom") != std::string::npos);
     REQUIRE(std::string(u).find("--text") != std::string::npos);
     REQUIRE(std::string(u).find("sequential") != std::string::npos);
