@@ -1,4 +1,4 @@
-.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.3" "User Commands"
+.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.4" "User Commands"
 .SH NAME
 vidwizard \- high-quality command-line video edits
 .SH SYNOPSIS
@@ -114,6 +114,24 @@ a single
 holds that factor.
 Example:
 .B \-\-zoom 1-2.4@0.5,0.4:2-4;2.4-1:4-6
+.TP
+.BI \-\-text " SPEC"
+Repeatable overlay.
+.I SPEC
+is
+.IR TEXT[:RANGE][+X+Y] .
+Default origin is 0,0 (top-left), bold white on a transparent background.
+.TP
+.BI \-\-text-font " PATH"
+.TQ
+.BI \-\-text-style " bold|regular"
+.TQ
+.BI \-\-text-size " N"
+.TQ
+.BI \-\-text-color " RRGGBB"
+.TQ
+.BI \-\-text-bg " RRGGBB"
+Solid box color (6 or 8 hex digits). Omit for transparent.
 .TP
 .BI \-\-jobs " N"
 Worker/encoder threads.

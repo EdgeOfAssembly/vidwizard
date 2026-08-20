@@ -1,6 +1,7 @@
 #include "vidwizard/filter_spec.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cstdio>
 
 TEST_CASE("atempo chain splits outside 0.5-2")
 {
@@ -49,6 +50,20 @@ TEST_CASE("ranged reverse uses split concat")
     REQUIRE(g.uses_split);
     REQUIRE(g.video.find("concat=") != std::string::npos);
     REQUIRE(g.video.find("reverse") != std::string::npos);
+}
+
+TEST_CASE("text overlay uses drawtext")
+{
+    vidwizard::cli_options opt{};
+    vw_text t{};
+    std::snprintf(t.text, sizeof(t.text), "Hello");
+    t.has_range = 1;
+    t.range.start_s = 1.0;
+    t.range.end_s = 2.0;
+    opt.texts.push_back(t);
+    const auto g = vidwizard::build_filter_graphs(opt, {}, 320, 240, 4.0, nullptr, 10, 1);
+    REQUIRE(g.video.find("drawtext=") != std::string::npos);
+    REQUIRE(g.video.find("Hello") != std::string::npos);
 }
 
 TEST_CASE("zoom filter uses zoompan")

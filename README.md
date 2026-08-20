@@ -12,7 +12,7 @@ vidwizard clip.mp4 --reverse
 vidwizard clip.mp4 --mute
 ```
 
-No arguments prints usage (same as `-h`). Version is `-v` / `--version` (0.3).
+No arguments prints usage (same as `-h`). Version is `-v` / `--version` (0.4).
 `--verbose` is extra stderr, never `-v`.
 
 Several flags on one command run **in one sequential graph** (crop, then
@@ -30,6 +30,7 @@ grayscale, then speed, …). Ranges are optional.
 | `--reverse[=RANGES]` | `clip_rev.mp4` |
 | `--mute[=RANGES]` | `clip_mute.mp4` (drop audio, or silence windows) |
 | `--zoom SPEC` | `clip_zoom.mp4` — `Z0[-Z1][@CX,CY][:RANGE];…` |
+| `--text SPEC` | overlay, repeatable: `TEXT[:RANGE][+X+Y]` (default 0,0 white bold) |
 
 Combine operations (no ranges required):
 

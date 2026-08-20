@@ -98,6 +98,11 @@ TEST_CASE("range-valued operations")
     REQUIRE(crop.opt.crop.has_value());
     REQUIRE(crop.opt.crop->width == 160);
 
+    auto tx = parse_words({"vidwizard", "--text", "Zoom in:2-4", "--text", "Zoom out:4-6+8+8", "a.mp4"});
+    REQUIRE(tx.opt.texts.size() == 2);
+    REQUIRE(std::string(tx.opt.texts[0].text) == "Zoom in");
+    REQUIRE(tx.opt.texts[1].x == 8);
+
     auto zm = parse_words({"vidwizard", "--zoom", "1-2.2@0.5,0.4:2-4", "a.mp4"});
     REQUIRE(zm.opt.zoom.size() == 1);
     REQUIRE(zm.opt.zoom[0].z1 == Catch::Approx(2.2));
@@ -138,7 +143,8 @@ TEST_CASE("usage text contains required interface")
     REQUIRE(std::string(u).find("-h, --help") != std::string::npos);
     REQUIRE(std::string(u).find("-v, --version") != std::string::npos);
     REQUIRE(std::string(u).find("--verbose") != std::string::npos);
-    REQUIRE(std::string(u).find("vidwizard 0.3") != std::string::npos);
+    REQUIRE(std::string(u).find("vidwizard 0.4") != std::string::npos);
     REQUIRE(std::string(u).find("--zoom") != std::string::npos);
+    REQUIRE(std::string(u).find("--text") != std::string::npos);
     REQUIRE(std::string(u).find("sequential") != std::string::npos);
 }

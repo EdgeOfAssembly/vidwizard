@@ -18,6 +18,9 @@ extern "C" {
 /** Maximum animated zoom segments in one `--zoom` spec. */
 #define VW_MAX_ZOOMS 16
 
+/** Maximum characters in one `--text` string (excluding NUL). */
+#define VW_MAX_TEXT 255
+
 /** Maximum characters in a copied ranges substring (including NUL). */
 #define VW_MAX_RANGES_CHARS 512
 
@@ -167,6 +170,44 @@ int vw_parse_speed_spec(const char *s, double *factor, char *ranges, size_t rang
  * @retval -28  ENOSPC.
  */
 int vw_parse_zoom_spec(const char *s, vw_zoom_seg *buf, size_t cap, size_t *out_n);
+
+/**
+ * @brief One `--text` overlay: string, pixel origin, optional time window.
+ *
+ * @p has_range is 0 when the label lasts the whole clip.
+ */
+typedef struct vw_text
+{
+    char text[VW_MAX_TEXT + 1];
+    int x;
+    int y;
+    int has_range;
+    vw_range range;
+} vw_text;
+
+/**
+ * @brief Parse `TEXT[:RANGE][+X+Y]`.
+ *
+ * Range and position are optional and parsed from the right so the
+ * label may contain colons. Default origin is 0,0 (top-left).
+ *
+ * @retval  0   Success.
+ * @retval -22  EINVAL.
+ */
+int vw_parse_text_spec(const char *s, vw_text *out);
+
+/**
+ * @brief Parse `RRGGBB` or `RRGGBBAA` (optional leading `#`).
+ *
+ * @param[in]  s    Hex color; must not be NULL.
+ * @param[out] out  Canonical `#RRGGBB` or `#RRGGBBAA`.
+ * @param[in]  cap  Capacity of @p out.
+ *
+ * @retval  0   Success.
+ * @retval -22  EINVAL.
+ * @retval -28  ENOSPC.
+ */
+int vw_parse_hex_color(const char *s, char *out, size_t cap);
 
 /**
  * @brief Decimal digit width needed to write 1..@p frame_count.

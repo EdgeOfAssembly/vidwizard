@@ -170,6 +170,40 @@ TEST_CASE("zoom spec hold animate and multi segment")
     REQUIRE(vw_parse_zoom_spec("9", z, 4, &n) != 0);
 }
 
+TEST_CASE("text spec range and pixel origin")
+{
+    vw_text t{};
+    REQUIRE(vw_parse_text_spec("Hello", &t) == 0);
+    REQUIRE(std::strcmp(t.text, "Hello") == 0);
+    REQUIRE(t.x == 0);
+    REQUIRE(t.y == 0);
+    REQUIRE(t.has_range == 0);
+
+    REQUIRE(vw_parse_text_spec("Zoom in:2-4", &t) == 0);
+    REQUIRE(std::strcmp(t.text, "Zoom in") == 0);
+    REQUIRE(t.has_range == 1);
+    REQUIRE(t.range.start_s == 2.0);
+    REQUIRE(t.range.end_s == 4.0);
+
+    REQUIRE(vw_parse_text_spec("Hi:1-2+16+8", &t) == 0);
+    REQUIRE(std::strcmp(t.text, "Hi") == 0);
+    REQUIRE(t.x == 16);
+    REQUIRE(t.y == 8);
+    REQUIRE(t.has_range == 1);
+
+    REQUIRE(vw_parse_text_spec("Label+10+20", &t) == 0);
+    REQUIRE(std::strcmp(t.text, "Label") == 0);
+    REQUIRE(t.x == 10);
+    REQUIRE(t.y == 20);
+
+    char col[16];
+    REQUIRE(vw_parse_hex_color("FF00aa", col, sizeof(col)) == 0);
+    REQUIRE(std::strcmp(col, "#ff00aa") == 0);
+    REQUIRE(vw_parse_hex_color("#AABBCCDD", col, sizeof(col)) == 0);
+    REQUIRE(std::strcmp(col, "#aabbccdd") == 0);
+    REQUIRE(vw_parse_hex_color("xyz", col, sizeof(col)) != 0);
+}
+
 TEST_CASE("frame index width and name")
 {
     REQUIRE(vw_frame_index_width(0) == 1);

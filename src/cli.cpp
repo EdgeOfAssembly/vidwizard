@@ -40,6 +40,13 @@ const char k_usage[] =
     "      --mute[=RANGES]         Drop all audio, or silence given ranges\n"
     "      --zoom SPEC             Animate zoom: Z0[-Z1][@CX,CY][:RANGE]\n"
     "                              Segments split by ;  (CX,CY are 0..1)\n"
+    "      --text SPEC             Overlay (repeatable): TEXT[:RANGE][+X+Y]\n"
+    "                              Default 0,0 white bold, transparent bg\n"
+    "      --text-font PATH        Font file (default DejaVu Sans Bold)\n"
+    "      --text-style bold|regular   Default bold\n"
+    "      --text-size N           Font size in pixels (default 28)\n"
+    "      --text-color RRGGBB     Text color (default FFFFFF)\n"
+    "      --text-bg RRGGBB        Solid box; omit for transparent\n"
     "      --jobs N                Threads (default: all logical cores)\n"
     "      --verbose               Extra progress on stderr\n"
     "      --log-file PATH         Also write diagnostics to PATH\n"
@@ -112,7 +119,8 @@ const char *usage_text(void)
 bool has_operation(const cli_options &opt)
 {
     return opt.grayscale || opt.explode || opt.cut || opt.speed_factor.has_value() ||
-           opt.crop.has_value() || opt.reverse || opt.mute || !opt.zoom.empty();
+           opt.crop.has_value() || opt.reverse || opt.mute || !opt.zoom.empty() ||
+           !opt.texts.empty();
 }
 
 int operation_count(const cli_options &opt)
@@ -126,6 +134,7 @@ int operation_count(const cli_options &opt)
     n += opt.reverse ? 1 : 0;
     n += opt.mute ? 1 : 0;
     n += opt.zoom.empty() ? 0 : 1;
+    n += opt.texts.empty() ? 0 : 1;
     return n;
 }
 
@@ -168,6 +177,10 @@ std::string default_suffix(const cli_options &opt)
     {
         return "_zoom";
     }
+    if (!opt.texts.empty())
+    {
+        return "_text";
+    }
     return "_edit";
 }
 
@@ -189,6 +202,13 @@ void resolve_option_ranges(cli_options &opt, double duration_s)
     for (vw_zoom_seg &z : opt.zoom)
     {
         vw_resolve_ranges(&z.range, 1, duration_s);
+    }
+    for (vw_text &tx : opt.texts)
+    {
+        if (tx.has_range != 0)
+        {
+            vw_resolve_ranges(&tx.range, 1, duration_s);
+        }
     }
 }
 
@@ -484,6 +504,123 @@ parse_result parse_argv(int argc, char **argv)
                 return result;
             }
             result.opt.zoom.assign(zbuf, zbuf + zn);
+            continue;
+        }
+
+        if (!end_of_opts && (std::strcmp(arg, "--text") == 0 || starts_with(arg, "--text=")))
+        {
+            const char *eq = starts_with(arg, "--text=") ? arg + std::strlen("--text=") : nullptr;
+            const char *val = take_value(&i, argc, argv, eq, &result.error, "--text");
+            if (val == nullptr)
+            {
+                result.exit_code = 1;
+                return result;
+            }
+            vw_text tx{};
+            if (vw_parse_text_spec(val, &tx) != 0)
+            {
+                result.error = std::string("invalid --text spec: ") + val;
+                result.exit_code = 1;
+                return result;
+            }
+            result.opt.texts.push_back(tx);
+            continue;
+        }
+
+        if (!end_of_opts && (std::strcmp(arg, "--text-font") == 0 || starts_with(arg, "--text-font=")))
+        {
+            const char *eq = starts_with(arg, "--text-font=") ? arg + std::strlen("--text-font=") : nullptr;
+            const char *val = take_value(&i, argc, argv, eq, &result.error, "--text-font");
+            if (val == nullptr)
+            {
+                result.exit_code = 1;
+                return result;
+            }
+            result.opt.text_font = val;
+            continue;
+        }
+
+        if (!end_of_opts && (std::strcmp(arg, "--text-style") == 0 ||
+                             starts_with(arg, "--text-style=")))
+        {
+            const char *eq =
+                starts_with(arg, "--text-style=") ? arg + std::strlen("--text-style=") : nullptr;
+            const char *val = take_value(&i, argc, argv, eq, &result.error, "--text-style");
+            if (val == nullptr)
+            {
+                result.exit_code = 1;
+                return result;
+            }
+            if (std::strcmp(val, "bold") != 0 && std::strcmp(val, "regular") != 0)
+            {
+                result.error = "--text-style must be bold or regular";
+                result.exit_code = 1;
+                return result;
+            }
+            result.opt.text_style = val;
+            continue;
+        }
+
+        if (!end_of_opts && (std::strcmp(arg, "--text-size") == 0 || starts_with(arg, "--text-size=")))
+        {
+            const char *eq = starts_with(arg, "--text-size=") ? arg + std::strlen("--text-size=") : nullptr;
+            const char *val = take_value(&i, argc, argv, eq, &result.error, "--text-size");
+            if (val == nullptr)
+            {
+                result.exit_code = 1;
+                return result;
+            }
+            char *end = nullptr;
+            const long n = std::strtol(val, &end, 10);
+            if (end == val || *end != '\0' || n < 8 || n > 512)
+            {
+                result.error = "--text-size must be an integer 8..512";
+                result.exit_code = 1;
+                return result;
+            }
+            result.opt.text_size = static_cast<int>(n);
+            continue;
+        }
+
+        if (!end_of_opts && (std::strcmp(arg, "--text-color") == 0 ||
+                             starts_with(arg, "--text-color=")))
+        {
+            const char *eq =
+                starts_with(arg, "--text-color=") ? arg + std::strlen("--text-color=") : nullptr;
+            const char *val = take_value(&i, argc, argv, eq, &result.error, "--text-color");
+            if (val == nullptr)
+            {
+                result.exit_code = 1;
+                return result;
+            }
+            char col[16];
+            if (vw_parse_hex_color(val, col, sizeof(col)) != 0)
+            {
+                result.error = std::string("invalid --text-color: ") + val;
+                result.exit_code = 1;
+                return result;
+            }
+            result.opt.text_color = col;
+            continue;
+        }
+
+        if (!end_of_opts && (std::strcmp(arg, "--text-bg") == 0 || starts_with(arg, "--text-bg=")))
+        {
+            const char *eq = starts_with(arg, "--text-bg=") ? arg + std::strlen("--text-bg=") : nullptr;
+            const char *val = take_value(&i, argc, argv, eq, &result.error, "--text-bg");
+            if (val == nullptr)
+            {
+                result.exit_code = 1;
+                return result;
+            }
+            char col[16];
+            if (vw_parse_hex_color(val, col, sizeof(col)) != 0)
+            {
+                result.error = std::string("invalid --text-bg: ") + val;
+                result.exit_code = 1;
+                return result;
+            }
+            result.opt.text_bg = col;
             continue;
         }
 

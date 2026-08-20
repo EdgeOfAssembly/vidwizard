@@ -778,6 +778,171 @@ int vw_parse_zoom_spec(const char *s, vw_zoom_seg *buf, size_t cap, size_t *out_
     return 0;
 }
 
+static int is_hex_digit(char c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+int vw_parse_hex_color(const char *s, char *out, size_t cap)
+{
+    const char *p = NULL;
+    size_t n = 0;
+    size_t i = 0;
+
+    if (s == NULL || out == NULL)
+    {
+        return VW_EINVAL;
+    }
+    p = skip_spaces(s);
+    if (*p == '#')
+    {
+        p++;
+    }
+    while (is_hex_digit(p[n]))
+    {
+        n++;
+    }
+    if ((n != 6 && n != 8) || p[n] != '\0')
+    {
+        return VW_EINVAL;
+    }
+    if (cap < n + 2)
+    {
+        return VW_ENOSPC;
+    }
+    out[0] = '#';
+    for (i = 0; i < n; i++)
+    {
+        char c = p[i];
+        if (c >= 'A' && c <= 'F')
+        {
+            c = (char)(c - 'A' + 'a');
+        }
+        out[i + 1] = c;
+    }
+    out[n + 1] = '\0';
+    return 0;
+}
+
+int vw_parse_text_spec(const char *s, vw_text *out)
+{
+    const char *end = NULL;
+    const char *pos_at = NULL;
+    const char *range_colon = NULL;
+    const char *body_end = NULL;
+    size_t tlen = 0;
+    vw_text t;
+
+    if (s == NULL || out == NULL)
+    {
+        return VW_EINVAL;
+    }
+
+    memset(&t, 0, sizeof(t));
+    t.x = 0;
+    t.y = 0;
+    t.has_range = 0;
+    t.range.start_s = 0.0;
+    t.range.end_s = VW_RANGE_UNTIL_EOF;
+
+    end = s + strlen(s);
+    while (end > s && (end[-1] == ' ' || end[-1] == '\t'))
+    {
+        end--;
+    }
+    if (end == s)
+    {
+        return VW_EINVAL;
+    }
+
+    /* Optional +X+Y at the end. */
+    {
+        const char *q = end;
+        const char *plus2 = NULL;
+        const char *plus1 = NULL;
+        while (q > s && q[-1] >= '0' && q[-1] <= '9')
+        {
+            q--;
+        }
+        if (q > s && q[-1] == '+')
+        {
+            plus2 = q - 1;
+            q--;
+            while (q > s && q[-1] >= '0' && q[-1] <= '9')
+            {
+                q--;
+            }
+            if (q > s && q[-1] == '+')
+            {
+                plus1 = q - 1;
+            }
+        }
+        if (plus1 != NULL && plus2 != NULL && plus2 > plus1 + 1)
+        {
+            int x = 0;
+            int y = 0;
+            const char *px = plus1 + 1;
+            const char *py = plus2 + 1;
+            if (parse_nonneg_int(&px, &x) == 0 && px == plus2 && parse_nonneg_int(&py, &y) == 0 &&
+                py == end)
+            {
+                t.x = x;
+                t.y = y;
+                pos_at = plus1;
+            }
+        }
+    }
+
+    body_end = pos_at != NULL ? pos_at : end;
+
+    /* Optional :RANGE immediately before position (or end). */
+    {
+        const char *colon = NULL;
+        const char *q = body_end;
+        while (q > s)
+        {
+            q--;
+            if (*q == ':')
+            {
+                colon = q;
+                break;
+            }
+        }
+        if (colon != NULL && colon + 1 < body_end)
+        {
+            char rbuf[VW_MAX_RANGES_CHARS];
+            size_t rlen = (size_t)(body_end - colon - 1);
+            vw_range rng[VW_MAX_RANGES];
+            size_t nr = 0;
+            if (rlen > 0 && rlen < sizeof(rbuf))
+            {
+                memcpy(rbuf, colon + 1, rlen);
+                rbuf[rlen] = '\0';
+                if (vw_parse_ranges(rbuf, rng, VW_MAX_RANGES, &nr) == 0 && nr >= 1)
+                {
+                    range_colon = colon;
+                    t.has_range = 1;
+                    t.range = rng[0];
+                }
+            }
+        }
+    }
+
+    {
+        const char *text_end = range_colon != NULL ? range_colon : body_end;
+        tlen = (size_t)(text_end - s);
+        if (tlen == 0 || tlen > (size_t)VW_MAX_TEXT)
+        {
+            return VW_EINVAL;
+        }
+        memcpy(t.text, s, tlen);
+        t.text[tlen] = '\0';
+    }
+
+    *out = t;
+    return 0;
+}
+
 int vw_frame_index_width(uint64_t frame_count)
 {
     int width = 0;

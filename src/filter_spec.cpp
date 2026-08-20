@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -180,7 +182,7 @@ std::string fps_filter(int fps_num, int fps_den)
 }
 
 std::string video_effects(const segment &s, const vw_crop *crop, int src_w, int src_h,
-                          bool whole_crop, int fps_num, int fps_den)
+                          bool whole_crop, int fps_num, int fps_den, bool include_gray)
 {
     std::vector<std::string> parts;
     if (whole_crop && crop != nullptr)
@@ -194,7 +196,7 @@ std::string video_effects(const segment &s, const vw_crop *crop, int src_w, int 
         std::snprintf(scale, sizeof(scale), "scale=%d:%d:flags=lanczos+accurate_rnd", src_w, src_h);
         parts.push_back(scale);
     }
-    if (s.gray)
+    if (include_gray && s.gray)
     {
         parts.push_back(grayscale_filter({}));
     }
@@ -323,6 +325,81 @@ std::string grayscale_filter(const std::vector<vw_range> &ranges)
     return f;
 }
 
+std::string drawtext_escape(const std::string &s)
+{
+    std::string out;
+    out.reserve(s.size() + 8);
+    for (char c : s)
+    {
+        if (c == '\\' || c == ':' || c == '\'' || c == '%')
+        {
+            out += '\\';
+        }
+        out += c;
+    }
+    return out;
+}
+
+std::string default_font_file(const cli_options &opt)
+{
+    namespace fs = std::filesystem;
+    if (!opt.text_font.empty())
+    {
+        return opt.text_font;
+    }
+    const bool bold = opt.text_style != "regular";
+    const char *bold_path = "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf";
+    const char *reg_path = "/usr/share/fonts/dejavu/DejaVuSans.ttf";
+    const char *pick = bold ? bold_path : reg_path;
+    if (fs::is_regular_file(pick))
+    {
+        return pick;
+    }
+    if (fs::is_regular_file(bold_path))
+    {
+        return bold_path;
+    }
+    if (fs::is_regular_file(reg_path))
+    {
+        return reg_path;
+    }
+    return pick;
+}
+
+std::string text_overlays_filter(const cli_options &opt)
+{
+    if (opt.texts.empty())
+    {
+        return {};
+    }
+    const std::string font = default_font_file(opt);
+    std::string chain;
+    for (const vw_text &tx : opt.texts)
+    {
+        std::string d = "drawtext=fontfile=" + drawtext_escape(font);
+        d += ":text='" + drawtext_escape(tx.text) + "'";
+        d += ":x=" + std::to_string(tx.x);
+        d += ":y=" + std::to_string(tx.y);
+        d += ":fontsize=" + std::to_string(opt.text_size < 8 ? 28 : opt.text_size);
+        d += ":fontcolor=" + (opt.text_color.empty() ? std::string("#ffffff") : opt.text_color);
+        if (!opt.text_bg.empty())
+        {
+            d += ":box=1:boxcolor=" + opt.text_bg + ":boxborderw=8";
+        }
+        if (tx.has_range != 0)
+        {
+            const double t1 = tx.range.end_s < 0.0 ? 1000000000000.0 : tx.range.end_s;
+            d += ":enable='gte(t," + fmt_t(tx.range.start_s) + ")*lt(t," + fmt_t(t1) + ")'";
+        }
+        if (!chain.empty())
+        {
+            chain += ",";
+        }
+        chain += d;
+    }
+    return chain;
+}
+
 std::string zoom_time_expr(int fps_num, int fps_den)
 {
     /* zoompan has no `t`; use input frame index. */
@@ -436,12 +513,27 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
 
         if (segs.size() == 1)
         {
-            std::string ve =
-                video_effects(segs[0], crop_resolved, src_w, src_h, false, fps_num, fps_den);
+            std::string ve = video_effects(segs[0], crop_resolved, src_w, src_h, false, fps_num,
+                                           fps_den, false);
+            std::vector<std::string> pre;
             const std::string zf = zoom_filter(opt.zoom, src_w, src_h, fps_num, fps_den);
             if (!zf.empty())
             {
-                ve = ve.empty() || ve == "null" ? zf : zf + "," + ve;
+                pre.push_back(zf);
+            }
+            if (opt.grayscale)
+            {
+                pre.push_back(grayscale_filter(opt.grayscale_ranges));
+            }
+            const std::string tf = text_overlays_filter(opt);
+            if (!tf.empty())
+            {
+                pre.push_back(tf);
+            }
+            const std::string head = join_comma(pre);
+            if (!head.empty())
+            {
+                ve = ve.empty() || ve == "null" ? head : head + "," + ve;
             }
             g.video = ve.empty() ? "null" : ve;
             if (mute_all)
@@ -466,6 +558,15 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
             {
                 v << zf << ",";
             }
+            if (opt.grayscale)
+            {
+                v << grayscale_filter(opt.grayscale_ranges) << ",";
+            }
+            const std::string tf = text_overlays_filter(opt);
+            if (!tf.empty())
+            {
+                v << tf << ",";
+            }
         }
         v << "split=" << n;
         for (int i = 0; i < n; i++)
@@ -477,8 +578,9 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
         {
             v << "[v" << i << "]trim=" << fmt_t(segs[static_cast<std::size_t>(i)].start) << ":"
               << fmt_t(segs[static_cast<std::size_t>(i)].end) << ",setpts=PTS-STARTPTS";
-            const std::string fx = video_effects(segs[static_cast<std::size_t>(i)], crop_resolved,
-                                                 src_w, src_h, false, fps_num, fps_den);
+            const std::string fx =
+                video_effects(segs[static_cast<std::size_t>(i)], crop_resolved, src_w, src_h, false,
+                              fps_num, fps_den, false);
             if (!fx.empty())
             {
                 v << "," << fx;
@@ -544,6 +646,13 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
     if (opt.grayscale)
     {
         vparts.push_back(grayscale_filter(opt.grayscale_ranges));
+    }
+    {
+        const std::string tf = text_overlays_filter(opt);
+        if (!tf.empty())
+        {
+            vparts.push_back(tf);
+        }
     }
     if (opt.reverse)
     {

@@ -53,6 +53,13 @@ struct cli_options
 
     std::vector<vw_zoom_seg> zoom;
 
+    std::vector<vw_text> texts;
+    std::string text_font;
+    std::string text_style{"bold"};
+    int text_size = 28;
+    std::string text_color{"#ffffff"};
+    std::string text_bg; /**< Empty = transparent (no box). */
+
     std::vector<std::filesystem::path> inputs;
 };
 
