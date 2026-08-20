@@ -7,17 +7,11 @@ vidwizard \- high-quality command-line video edits
 .IR inputs ...
 .SH DESCRIPTION
 .B vidwizard
-is a command-line video editor built on the FFmpeg 8 libraries
-.RI ( libav* ).
-Think of it as ImageMagick
-.B convert
-for video: name the file, name the effect, get a high-quality result
-without a GUI.
+is a command-line video editor.
+Name a file, name the effect, get a high-quality result without a GUI.
 .PP
 This is
 .BR 0.4.0-alpha .
-The CLI is meant to stay stable; treat edge cases and encoder details as
-still moving.
 .PP
 Defaults keep quality high (libx264 CRF 16, Rec.709 grayscale,
 max-compressed 32-bit PNG) and use every logical CPU core.
@@ -31,16 +25,13 @@ prints the same help as
 .B \-h
 and exits 0.
 .PP
-Input directories expand (non-recursively) to common video types.
-There is no
-.B \-\-batch
-flag.
+Input directories expand to common video types.
 .B \-v
 /
 .B \-\-version
-print the version;
+print the version.
 .B \-\-verbose
-is extra progress on stderr.
+writes extra progress to stderr.
 .SS Time ranges
 Time ranges are
 .IR START-END,START-END,...
@@ -69,8 +60,8 @@ zoom.
 Output size stays the source size for a ranged crop.
 .PP
 .B \-\-zoom
-is a Ken Burns fill-frame zoom: the picture scales around a normalized
-center while the output stays the source resolution.
+fills the frame: the picture scales around a normalized center while
+the output stays the source resolution.
 .SS Reverse and memory
 .B \-\-reverse
 buffers the selected frames in memory.
@@ -103,14 +94,14 @@ is invoked with no arguments.
 .TP
 .BR \-v ", " \-\-version
 Show version and exit.
-Never used for verbose mode (see
-.BR \-\-verbose ).
 .TP
 .BI \-o ", " \-\-output " PATH"
 Single output file or directory (may be given only once).
 One input plus a file path uses that exact name.
-Several inputs plus a file path warn and write
-.IR outstem_instem.ext .
+Several inputs plus
+.B \-o out.mp4
+write
+.IR out_<input>.mp4 .
 A directory (existing, trailing slash, or created) receives
 default-named outputs.
 .TP
@@ -135,9 +126,7 @@ range.
 .TP
 .BI \-\-speed " FACTOR[:RANGES]"
 Forward speed multiplier (for example 1.5, 2, 2.75).
-Audio is kept in sync with pitch-preserving
-.B atempo
-unless
+Audio stays in pitch unless
 .B \-\-mute
 is given.
 Optional ranges speed only those windows; the rest stays 1×.
@@ -145,9 +134,8 @@ Optional ranges speed only those windows; the rest stays 1×.
 .BI \-\-crop " GEOM[:RANGES]"
 Crop
 .I WxH+X+Y
-(ImageMagick) or
-.IR W:H:X:Y
-(FFmpeg).
+or
+.IR W:H:X:Y .
 .I WxH
 or
 .I W:H
@@ -168,7 +156,7 @@ above).
 Drop all audio, or silence the listed windows (audio stream kept).
 .TP
 .BI \-\-zoom " SPEC"
-Animated Ken Burns zoom.
+Animated fill-frame zoom.
 Each segment is
 .IR Z0[-Z1][@CX,CY][:RANGE]
 separated by
@@ -286,7 +274,7 @@ Grayscale from five minutes to the end:
 .B vidwizard clip.mp4 \-\-grayscale 5:00-
 .RE
 .PP
-Zoom in, then zoom out (Ken Burns, fill-frame):
+Zoom in, then zoom out:
 .RS
 .EX
 vidwizard clip.mp4 \\

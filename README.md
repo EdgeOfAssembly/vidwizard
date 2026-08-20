@@ -15,6 +15,18 @@ CPU core are the defaults. Several flags on one command run as **one
 sequential graph** (crop, then grayscale, then speed, …). Ranges are
 optional.
 
+As of **0.4.0-alpha**, vidwizard can:
+
+- Convert to **grayscale**
+- **Explode** a clip into lossless PNG frames
+- **Cut** one or more time windows into their own files
+- **Speed up** (audio stays in pitch)
+- **Crop** (whole clip, or a window with the rest black)
+- **Reverse**
+- **Mute** or silence time windows
+- **Zoom** in and out (fill-frame)
+- Overlay **text** labels
+
 ## Quick start
 
 Sample output: [`examples/catwalk-demo.mp4`](examples/catwalk-demo.mp4)
@@ -85,7 +97,7 @@ make -s V=0 -j$(nproc) release   # bin/release/vidwizard
 | `--crop GEOM[:RANGES]` | Crop `WxH+X+Y` or `W:H:X:Y` (`WxH` = centred) → `clip_crop.mp4` |
 | `--reverse[=RANGES]` | Reverse whole clip or windows in place → `clip_rev.mp4` |
 | `--mute[=RANGES]` | Drop all audio, or silence windows → `clip_mute.mp4` |
-| `--zoom SPEC` | Ken Burns fill-frame zoom → `clip_zoom.mp4` |
+| `--zoom SPEC` | Fill-frame zoom → `clip_zoom.mp4` |
 | `--text SPEC` | Overlay, repeatable: `TEXT[:RANGE][+X+Y]` → `clip_text.mp4` |
 | `--text-font PATH` | Font file (default DejaVu Sans Bold) |
 | `--text-style bold\|regular` | Default `bold` |

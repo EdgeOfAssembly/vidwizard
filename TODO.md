@@ -18,7 +18,7 @@ flags on one command.
 | `--rotate DEG` | 90/180/270 and small angles. |
 | `--stabilize` | Deshake (heavy). |
 
-`--text` and `--zoom` already cover labels and Ken Burns.
+`--text` and `--zoom` already cover labels and fill-frame zoom.
 
 ## Notes
 
