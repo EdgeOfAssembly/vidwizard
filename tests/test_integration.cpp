@@ -166,6 +166,33 @@ TEST_CASE("integration grayscale explode cut speed crop reverse mute", "[integra
     REQUIRE(run_cmd(b + " --grayscale 0.2-0.8 " + clip.string() + " -o " +
                         (outdir / "gray_part.mp4").string(),
                     &log) == 0);
+
+    REQUIRE(run_cmd(b + " --grayscale 0.5- " + clip.string() + " -o " +
+                        (outdir / "gray_open.mp4").string(),
+                    &log) == 0);
+    REQUIRE(fs::exists(outdir / "gray_open.mp4"));
+}
+
+TEST_CASE("stereo speed keeps pitch-preserving audio", "[integration]")
+{
+    const fs::path stereo = "testdata/stereo.mp4";
+    if (!fs::exists(stereo))
+    {
+        SKIP("testdata/stereo.mp4 missing");
+    }
+    const std::string b = bin_path();
+    const fs::path out = "testdata/out/stereo_speed.mp4";
+    fs::create_directories(out.parent_path());
+    std::string log;
+    REQUIRE(run_cmd(b + " --speed 2 " + stereo.string() + " -o " + out.string(), &log) == 0);
+    REQUIRE(fs::exists(out));
+    std::string probe;
+    REQUIRE(run_cmd("ffprobe -v error -select_streams a:0 -show_entries stream=codec_type,channels "
+                    "-of csv=p=0 " +
+                        out.string(),
+                    &probe) == 0);
+    REQUIRE(probe.find("audio") != std::string::npos);
+    REQUIRE(probe.find("2") != std::string::npos);
 }
 
 TEST_CASE("ffprobe crop size and mute has no audio", "[integration]")

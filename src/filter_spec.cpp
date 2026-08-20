@@ -213,6 +213,16 @@ std::string video_effects(const segment &s, const vw_crop *crop, int src_w, int 
     return join_comma(parts);
 }
 
+std::string finish_audio(const std::string &chain)
+{
+    /* atempo emits packed FLT; native AAC requires planar FLTP. */
+    if (chain.empty())
+    {
+        return chain;
+    }
+    return chain + ",aformat=sample_fmts=fltp";
+}
+
 std::string audio_effects(const segment &s)
 {
     std::vector<std::string> parts;
@@ -278,11 +288,20 @@ std::string enable_expression(const std::vector<vw_range> &ranges)
         {
             e += "+";
         }
-        e += "between(t,";
-        e += fmt_t(ranges[i].start_s);
-        e += ",";
-        e += fmt_t(ranges[i].end_s);
-        e += ")";
+        if (ranges[i].end_s < 0.0)
+        {
+            e += "gte(t,";
+            e += fmt_t(ranges[i].start_s);
+            e += ")";
+        }
+        else
+        {
+            e += "between(t,";
+            e += fmt_t(ranges[i].start_s);
+            e += ",";
+            e += fmt_t(ranges[i].end_s);
+            e += ")";
+        }
     }
     return e;
 }
@@ -334,7 +353,7 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
         if (segs.empty())
         {
             g.video = "null";
-            g.audio = mute_all ? "" : "anull";
+            g.audio = mute_all ? "" : finish_audio("anull");
             g.drop_audio = mute_all;
             return g;
         }
@@ -352,7 +371,7 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
             else
             {
                 std::string ae = audio_effects(segs[0]);
-                g.audio = ae.empty() ? "anull" : ae;
+                g.audio = finish_audio(ae.empty() ? "anull" : ae);
             }
             return g;
         }
@@ -414,7 +433,7 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
             {
                 a << "[t" << i << "]";
             }
-            a << "concat=n=" << n << ":v=0:a=1";
+            a << "concat=n=" << n << ":v=0:a=1,aformat=sample_fmts=fltp";
             g.audio = a.str();
         }
         return g;
@@ -467,7 +486,7 @@ filter_graphs build_filter_graphs(const cli_options &opt, const time_window &win
     {
         aparts.push_back(atempo_chain(*opt.speed_factor));
     }
-    g.audio = aparts.empty() ? "anull" : join_comma(aparts);
+    g.audio = finish_audio(aparts.empty() ? "anull" : join_comma(aparts));
     return g;
 }
 

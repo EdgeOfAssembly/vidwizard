@@ -21,8 +21,10 @@ const char k_usage[] =
     "            Directories expand to common video types (batch; no --batch flag).\n"
     "\n"
     "High-quality edits without a GUI. Quality and all logical CPU cores are\n"
-    "the defaults. Time ranges: START-END,START-END,…  Times: seconds, MM:SS,\n"
-    "or HH:MM:SS (fractions allowed).\n"
+    "the defaults. Several flags on one command run as one sequential graph\n"
+    "(crop then grayscale then speed, …). Ranges are optional.\n"
+    "Time ranges: START-END,START-END,…  Open end: 10-  (to EOF). Open start:\n"
+    "-20 (from 0). Times: seconds, MM:SS, or HH:MM:SS (fractions allowed).\n"
     "\n"
     "Options:\n"
     "  -h, --help                  Show this help and exit\n"
@@ -31,7 +33,8 @@ const char k_usage[] =
     "      --grayscale[=RANGES]    High-quality Rec.709 grayscale\n"
     "      --explode[=RANGES]      Lossless 32-bit RGBA PNG frames (max zip)\n"
     "      --cut RANGES            Extract each range as its own video\n"
-    "      --speed FACTOR[:RANGES] Forward speed (e.g. 1.5, 2, 2.75)\n"
+    "      --speed FACTOR[:RANGES] Forward speed (e.g. 1.5, 2, 2.75); audio\n"
+    "                              keeps pitch (atempo). --mute to drop it\n"
     "      --crop GEOM[:RANGES]    Crop WxH+X+Y or W:H:X:Y (WxH = centered)\n"
     "      --reverse[=RANGES]      Reverse whole video or ranges in place\n"
     "      --mute[=RANGES]         Drop all audio, or silence given ranges\n"
@@ -159,6 +162,23 @@ std::string default_suffix(const cli_options &opt)
         return "_mute";
     }
     return "_edit";
+}
+
+void resolve_option_ranges(cli_options &opt, double duration_s)
+{
+    auto go = [duration_s](std::vector<vw_range> &v) {
+        if (!v.empty())
+        {
+            vw_resolve_ranges(v.data(), v.size(), duration_s);
+        }
+    };
+    go(opt.grayscale_ranges);
+    go(opt.explode_ranges);
+    go(opt.cut_ranges);
+    go(opt.speed_ranges);
+    go(opt.crop_ranges);
+    go(opt.reverse_ranges);
+    go(opt.mute_ranges);
 }
 
 parse_result parse_argv(int argc, char **argv)

@@ -19,9 +19,16 @@ extern "C" {
 #define VW_MAX_RANGES_CHARS 512
 
 /**
+ * @brief Sentinel for an open end (`10-`): until EOF, resolved later.
+ */
+#define VW_RANGE_UNTIL_EOF (-1.0)
+
+/**
  * @brief Half-open time window in seconds from the start of the media.
  *
  * End is exclusive in the pipeline (`start_s <= t < end_s`).
+ * @p end_s equal to #VW_RANGE_UNTIL_EOF means “until the clip ends”
+ * (`10-`, `1:00-`). Call vw_resolve_ranges() once duration is known.
  */
 typedef struct vw_range
 {
@@ -69,11 +76,22 @@ int vw_parse_timestamp(const char *s, double *out_seconds);
  * @param[in]  cap    Capacity of @p buf (elements).
  * @param[out] out_n  Number of ranges written; must not be NULL.
  *
+ * Open ends: `10-` / `1:00-` (until EOF), `-20` (from 0).
+ *
  * @retval  0   Success (at least one range).
  * @retval -22  EINVAL: syntax, start >= end, or NULL.
  * @retval -28  ENOSPC: more than @p cap ranges (or more than VW_MAX_RANGES).
  */
 int vw_parse_ranges(const char *s, vw_range *buf, size_t cap, size_t *out_n);
+
+/**
+ * @brief Replace #VW_RANGE_UNTIL_EOF with @p duration_s (or a large fallback).
+ *
+ * @param[in,out] buf         Range array.
+ * @param[in]     n           Number of ranges.
+ * @param[in]     duration_s  Media duration in seconds; 0 → 1e12 fallback.
+ */
+void vw_resolve_ranges(vw_range *buf, size_t n, double duration_s);
 
 /**
  * @brief Return 1 if @p s is a valid range list, else 0.

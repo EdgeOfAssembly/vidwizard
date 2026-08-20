@@ -77,6 +77,11 @@ TEST_CASE("range-valued operations")
     REQUIRE(g2.opt.grayscale_ranges.size() == 1);
     REQUIRE(g2.opt.inputs.size() == 1);
 
+    auto g3 = parse_words({"vidwizard", "--grayscale", "5-", "a.mp4"});
+    REQUIRE(g3.opt.grayscale);
+    REQUIRE(g3.opt.grayscale_ranges.size() == 1);
+    REQUIRE(g3.opt.grayscale_ranges[0].end_s == VW_RANGE_UNTIL_EOF);
+
     auto cut = parse_words({"vidwizard", "--cut", "1:00-1:30,2:00-2:10", "a.mp4"});
     REQUIRE(cut.opt.cut);
     REQUIRE(cut.opt.cut_ranges.size() == 2);
@@ -129,5 +134,6 @@ TEST_CASE("usage text contains required interface")
     REQUIRE(std::string(u).find("-h, --help") != std::string::npos);
     REQUIRE(std::string(u).find("-v, --version") != std::string::npos);
     REQUIRE(std::string(u).find("--verbose") != std::string::npos);
-    REQUIRE(std::string(u).find("vidwizard 0.1") != std::string::npos);
+    REQUIRE(std::string(u).find("vidwizard 0.2") != std::string::npos);
+    REQUIRE(std::string(u).find("sequential") != std::string::npos);
 }

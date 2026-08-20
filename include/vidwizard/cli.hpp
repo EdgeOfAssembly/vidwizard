@@ -112,4 +112,12 @@ int operation_count(const cli_options &opt);
  */
 std::string default_suffix(const cli_options &opt);
 
+/**
+ * @brief Fill open-ended ranges (`10-`) from probed media duration.
+ *
+ * @param[in,out] opt Parsed options whose range vectors are updated in place.
+ * @param[in]     duration_s Duration in seconds (0 → large fallback).
+ */
+void resolve_option_ranges(cli_options &opt, double duration_s);
+
 } // namespace vidwizard

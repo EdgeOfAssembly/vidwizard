@@ -1,4 +1,4 @@
-.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.1" "User Commands"
+.TH VIDWIZARD 1 "2026-08-20" "vidwizard 0.2" "User Commands"
 .SH NAME
 vidwizard \- high-quality command-line video edits
 .SH SYNOPSIS
@@ -12,6 +12,9 @@ libraries.
 Defaults keep quality high (libx264 CRF 16, Rec.709 grayscale, max-compressed
 32-bit PNG) and use every logical CPU core.
 Options and input paths may appear in any order.
+Several operations on one command run as one sequential filter graph
+(for example crop, then grayscale, then speed) without extra flags.
+Ranges are optional; omit them to apply an effect to the whole clip.
 With no arguments,
 .B vidwizard
 prints the same help as
@@ -20,6 +23,12 @@ and exits 0.
 .PP
 Time ranges are
 .I START-END,START-END,...
+An open end
+.RI ( 10- ", " 1:00- )
+runs to the end of the clip.
+An open start
+.RI ( \-20 )
+runs from time zero.
 Times may be seconds
 .RI ( 10.5 ),
 .I MM:SS
@@ -64,6 +73,11 @@ Extract each range as its own video
 .TP
 .BI \-\-speed " FACTOR[:RANGES]"
 Forward speed multiplier (for example 1.5, 2, 2.75).
+Audio is kept in sync with pitch-preserving
+.B atempo
+unless
+.B \-\-mute
+is given.
 Optional ranges speed only those windows; the rest stays 1×.
 .TP
 .BI \-\-crop " GEOM[:RANGES]"
@@ -129,6 +143,16 @@ Speed up two windows by 2.75×:
 Crop the centre 640×360:
 .RS
 .B vidwizard clip.mp4 \-\-crop 640x360
+.RE
+.PP
+Sequential ops (one graph, no ranges needed):
+.RS
+.B vidwizard clip.mp4 \-\-crop 640x360 \-\-grayscale \-\-speed 2
+.RE
+.PP
+Grayscale from five minutes to the end:
+.RS
+.B vidwizard clip.mp4 \-\-grayscale 5:00-
 .RE
 .SH SEE ALSO
 .BR ffmpeg (1),

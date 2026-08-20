@@ -62,8 +62,16 @@ int process_one(const cli_options &opt, const std::filesystem::path &input,
                 window.enabled = true;
                 window.start_s = range.start_s;
                 window.end_s = range.end_s;
-                log_error("vidwizard: cut %s [%.3f-%.3f) → %s", input.c_str(), range.start_s,
-                          range.end_s, out.c_str());
+                if (range.end_s < 0.0)
+                {
+                    log_error("vidwizard: cut %s [%.3f-EOF) → %s", input.c_str(), range.start_s,
+                              out.c_str());
+                }
+                else
+                {
+                    log_error("vidwizard: cut %s [%.3f-%.3f) → %s", input.c_str(), range.start_s,
+                              range.end_s, out.c_str());
+                }
                 if (transcode_file(input, out, local, window, inner) != 0)
                 {
                     errors.fetch_add(1);

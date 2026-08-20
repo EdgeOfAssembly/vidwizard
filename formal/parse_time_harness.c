@@ -61,5 +61,16 @@ int main(void)
     assert(vw_looks_like_ranges("10-20") == 1);
     assert(vw_looks_like_ranges("file.mp4") == 0);
 
+    assert(vw_parse_ranges("10-", ranges, 4, &n) == 0);
+    assert(n == 1);
+    assert(ranges[0].start_s == 10.0);
+    assert(ranges[0].end_s == VW_RANGE_UNTIL_EOF);
+    vw_resolve_ranges(ranges, n, 40.0);
+    assert(ranges[0].end_s == 40.0);
+
+    assert(vw_parse_ranges("-5", ranges, 4, &n) == 0);
+    assert(ranges[0].start_s == 0.0);
+    assert(ranges[0].end_s == 5.0);
+
     return 0;
 }

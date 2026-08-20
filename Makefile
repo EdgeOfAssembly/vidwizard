@@ -105,7 +105,7 @@ $(TEST_BIN): $(LIB_OBJS) $(TEST_OBJS)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@ $(CATCH_LIBS) $(FFMPEG_LIBS)
 
-testdata: testdata/clip.mp4 testdata/red.mp4
+testdata: testdata/clip.mp4 testdata/red.mp4 testdata/stereo.mp4
 
 testdata/clip.mp4:
 	@mkdir -p testdata
@@ -119,6 +119,13 @@ testdata/red.mp4:
 	ffmpeg -y -hide_banner -loglevel error \
 	  -f lavfi -i color=c=red:duration=1:size=64x64:rate=5 \
 	  -c:v libx264 -pix_fmt yuv420p $@
+
+testdata/stereo.mp4:
+	@mkdir -p testdata
+	ffmpeg -y -hide_banner -loglevel error \
+	  -f lavfi -i testsrc=duration=2:size=320x240:rate=10 \
+	  -f lavfi -i sine=frequency=440:duration=2,aformat=channel_layouts=stereo \
+	  -c:v libx264 -pix_fmt yuv420p -c:a aac -ac 2 -shortest $@
 
 test: $(TARGET) $(TEST_BIN) testdata
 	ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
@@ -156,8 +163,8 @@ compile_flags:
 
 clean:
 	rm -rf build bin vidwizard tests/run_tests gmon.out profile.txt
-	rm -f testdata/clip.mp4 testdata/red.mp4
-	rm -rf testdata/out testdata/net
+	rm -f testdata/clip.mp4 testdata/red.mp4 testdata/stereo.mp4
+	rm -rf testdata/out
 
 ifeq ($(V),1)
   # verbose: default recipe echo

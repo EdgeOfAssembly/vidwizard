@@ -5,6 +5,7 @@
 
 #include "vidwizard/media.hpp"
 
+#include "vidwizard/cli.hpp"
 #include "vidwizard/log.hpp"
 #include "vidwizard/parse_time.h"
 #include "vidwizard/paths.hpp"
@@ -444,6 +445,7 @@ int explode_file(const std::filesystem::path &input, const std::filesystem::path
         const double dur = (fmt->duration > 0)
                                ? static_cast<double>(fmt->duration) / static_cast<double>(AV_TIME_BASE)
                                : 0.0;
+        resolve_option_ranges(fopt, dur);
         const filter_graphs g =
             build_filter_graphs(fopt, time_window{}, dec->width, dec->height, dur, crop_ptr,
                                 dec->framerate.num, dec->framerate.den);

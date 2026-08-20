@@ -59,4 +59,5 @@ TEST_CASE("whole speed setpts and atempo")
     REQUIRE(g.video.find("setpts=PTS/") != std::string::npos);
     REQUIRE(g.video.find("fps=") != std::string::npos);
     REQUIRE(g.audio.find("atempo=") != std::string::npos);
+    REQUIRE(g.audio.find("aformat=sample_fmts=fltp") != std::string::npos);
 }

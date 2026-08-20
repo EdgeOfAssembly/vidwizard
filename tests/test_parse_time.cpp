@@ -65,9 +65,41 @@ TEST_CASE("parse ranges rejects empty inverted and trailing comma")
     REQUIRE(vw_parse_ranges("10-10", buf, 4, &n) != 0);
     REQUIRE(vw_parse_ranges("10-20,", buf, 4, &n) != 0);
     REQUIRE(vw_parse_ranges("", buf, 4, &n) != 0);
+    REQUIRE(vw_parse_ranges("-", buf, 4, &n) != 0);
     REQUIRE(vw_looks_like_ranges("clip.mp4") == 0);
     REQUIRE(vw_looks_like_ranges("10-20") == 1);
     REQUIRE(vw_looks_like_ranges("10-20,30-40") == 1);
+}
+
+TEST_CASE("open-ended ranges start- and -end")
+{
+    vw_range buf[4];
+    size_t n = 0;
+    REQUIRE(vw_parse_ranges("10-", buf, 4, &n) == 0);
+    REQUIRE(n == 1);
+    REQUIRE(buf[0].start_s == 10.0);
+    REQUIRE(buf[0].end_s == VW_RANGE_UNTIL_EOF);
+    REQUIRE(vw_looks_like_ranges("10-") == 1);
+    REQUIRE(vw_looks_like_ranges("1:00-") == 1);
+    REQUIRE(vw_looks_like_ranges("00:05:00-") == 1);
+
+    REQUIRE(vw_parse_ranges("-20", buf, 4, &n) == 0);
+    REQUIRE(buf[0].start_s == 0.0);
+    REQUIRE(buf[0].end_s == 20.0);
+
+    REQUIRE(vw_parse_ranges("10-,30-40", buf, 4, &n) == 0);
+    REQUIRE(n == 2);
+    REQUIRE(buf[0].end_s == VW_RANGE_UNTIL_EOF);
+    REQUIRE(buf[1].start_s == 30.0);
+
+    vw_resolve_ranges(buf, n, 50.0);
+    REQUIRE(buf[0].end_s == 50.0);
+    REQUIRE(buf[1].end_s == 40.0);
+
+    REQUIRE(vw_ranges_cover(buf, 1, 49.0) == 1);
+    vw_range open{.start_s = 5.0, .end_s = VW_RANGE_UNTIL_EOF};
+    REQUIRE(vw_ranges_cover(&open, 1, 100.0) == 1);
+    REQUIRE(vw_ranges_cover(&open, 1, 4.0) == 0);
 }
 
 TEST_CASE("crop geometry ImageMagick and ffmpeg forms")

@@ -5,6 +5,7 @@
 
 #include "vidwizard/media.hpp"
 
+#include "vidwizard/cli.hpp"
 #include "vidwizard/log.hpp"
 #include "vidwizard/paths.hpp"
 
@@ -231,10 +232,6 @@ int init_filter(stream_pipe *p, const char *filter_spec, unsigned jobs)
         {
             goto fail;
         }
-        if (p->enc->frame_size > 0)
-        {
-            av_buffersink_set_frame_size(p->sink, static_cast<unsigned>(p->enc->frame_size));
-        }
         ret = avfilter_init_dict(p->sink, nullptr);
         if (ret < 0)
         {
@@ -268,6 +265,10 @@ int init_filter(stream_pipe *p, const char *filter_spec, unsigned jobs)
         log_error("vidwizard: filter config failed (%s): %s", filter_spec, av_err(ret).c_str());
         goto fail;
     }
+    if (p->type == AVMEDIA_TYPE_AUDIO && p->enc != nullptr && p->enc->frame_size > 0)
+    {
+        av_buffersink_set_frame_size(p->sink, static_cast<unsigned>(p->enc->frame_size));
+    }
 
     avfilter_inout_free(&inputs);
     avfilter_inout_free(&outputs);
@@ -288,11 +289,41 @@ int encode_write(AVFormatContext *ofmt, stream_pipe *p, int flush)
     {
         if (p->type == AVMEDIA_TYPE_AUDIO)
         {
+            const int enc_ch = p->enc->ch_layout.nb_channels;
+            uint8_t **samples =
+                frame->extended_data != nullptr ? frame->extended_data : frame->data;
+            int pi = 0;
+            if (frame->format != p->enc->sample_fmt || enc_ch < 1 || samples == nullptr ||
+                frame->nb_samples < 1)
+            {
+                log_error("vidwizard: audio frame fmt=%s ns=%d enc_fmt=%s enc_ch=%d",
+                          av_get_sample_fmt_name(static_cast<AVSampleFormat>(frame->format)),
+                          frame->nb_samples, av_get_sample_fmt_name(p->enc->sample_fmt), enc_ch);
+                return AVERROR(EINVAL);
+            }
+            for (pi = 0; pi < enc_ch; pi++)
+            {
+                if (samples[pi] == nullptr)
+                {
+                    log_error("vidwizard: audio frame missing FLTP plane %d / %d", pi, enc_ch);
+                    return AVERROR(EINVAL);
+                }
+            }
+            if (p->enc->frame_size > 0 && frame->nb_samples > p->enc->frame_size)
+            {
+                log_error("vidwizard: audio nb_samples %d > encoder frame_size %d",
+                          frame->nb_samples, p->enc->frame_size);
+                return AVERROR(EINVAL);
+            }
             frame->pts = p->next_pts;
-            p->next_pts += frame->nb_samples > 0 ? frame->nb_samples : 1;
+            p->next_pts += frame->nb_samples;
         }
         else
         {
+            if (frame->data[0] == nullptr)
+            {
+                return 0;
+            }
             frame->pts = p->next_pts;
             p->next_pts += 1;
         }
@@ -423,6 +454,11 @@ int open_audio_encoder(stream_pipe *p, AVFormatContext *ofmt, unsigned jobs)
         return AVERROR(ENOMEM);
     }
     p->enc->sample_rate = p->dec->sample_rate;
+    if (p->dec->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC || p->dec->ch_layout.nb_channels < 1)
+    {
+        const int nch = p->dec->ch_layout.nb_channels > 0 ? p->dec->ch_layout.nb_channels : 2;
+        av_channel_layout_default(&p->dec->ch_layout, nch);
+    }
     int ret = av_channel_layout_copy(&p->enc->ch_layout, &p->dec->ch_layout);
     if (ret < 0)
     {
@@ -483,8 +519,10 @@ int resolve_crop(vw_crop *crop, int src_w, int src_h)
 }
 
 int transcode_file(const std::filesystem::path &input, const std::filesystem::path &output,
-                   const cli_options &opt, const time_window &window, unsigned jobs)
+                   const cli_options &opt_in, const time_window &window_in, unsigned jobs)
 {
+    cli_options opt = opt_in;
+    time_window window = window_in;
     AVFormatContext *ifmt = nullptr;
     AVFormatContext *ofmt = nullptr;
     stream_pipe video{};
@@ -547,6 +585,18 @@ int transcode_file(const std::filesystem::path &input, const std::filesystem::pa
     enc_w = video.dec->width;
     enc_h = video.dec->height;
     dur = duration_seconds(ifmt, ifmt->streams[vidx]);
+    resolve_option_ranges(opt, dur);
+    if (window.enabled)
+    {
+        if (window.end_s < 0.0)
+        {
+            window.end_s = dur > 0.0 ? dur : 1000000000000.0;
+        }
+        if (dur > 0.0 && window.end_s > dur)
+        {
+            window.end_s = dur;
+        }
+    }
     if (opt.crop.has_value())
     {
         crop = *opt.crop;

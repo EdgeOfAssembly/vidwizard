@@ -221,13 +221,26 @@ int vw_parse_ranges(const char *s, vw_range *buf, size_t cap, size_t *out_n)
 
         q = p;
         hyphen = NULL;
-        while (*q != '\0' && *q != ',')
+        if (*p == '-')
         {
-            if (*q == '-' && hyphen == NULL && q != p)
+            /* `-20` → from 0 to 20. */
+            hyphen = p;
+            q = p + 1;
+            while (*q != '\0' && *q != ',')
             {
-                hyphen = q;
+                q++;
             }
-            q++;
+        }
+        else
+        {
+            while (*q != '\0' && *q != ',')
+            {
+                if (*q == '-' && hyphen == NULL)
+                {
+                    hyphen = q;
+                }
+                q++;
+            }
         }
 
         if (hyphen == NULL)
@@ -237,27 +250,45 @@ int vw_parse_ranges(const char *s, vw_range *buf, size_t cap, size_t *out_n)
 
         slen = (size_t)(hyphen - p);
         elen = (size_t)(q - hyphen - 1);
-        if (slen == 0 || elen == 0 || slen >= sizeof(start_tok) || elen >= sizeof(end_tok))
+        if (slen >= sizeof(start_tok) || elen >= sizeof(end_tok))
+        {
+            return VW_EINVAL;
+        }
+        if (slen == 0 && elen == 0)
         {
             return VW_EINVAL;
         }
 
-        memcpy(start_tok, p, slen);
-        start_tok[slen] = '\0';
-        memcpy(end_tok, hyphen + 1, elen);
-        end_tok[elen] = '\0';
+        if (slen == 0)
+        {
+            range.start_s = 0.0;
+        }
+        else
+        {
+            memcpy(start_tok, p, slen);
+            start_tok[slen] = '\0';
+            if (vw_parse_timestamp(start_tok, &range.start_s) != 0)
+            {
+                return VW_EINVAL;
+            }
+        }
 
-        if (vw_parse_timestamp(start_tok, &range.start_s) != 0)
+        if (elen == 0)
         {
-            return VW_EINVAL;
+            range.end_s = VW_RANGE_UNTIL_EOF;
         }
-        if (vw_parse_timestamp(end_tok, &range.end_s) != 0)
+        else
         {
-            return VW_EINVAL;
-        }
-        if (range.start_s >= range.end_s)
-        {
-            return VW_EINVAL;
+            memcpy(end_tok, hyphen + 1, elen);
+            end_tok[elen] = '\0';
+            if (vw_parse_timestamp(end_tok, &range.end_s) != 0)
+            {
+                return VW_EINVAL;
+            }
+            if (range.start_s >= range.end_s)
+            {
+                return VW_EINVAL;
+            }
         }
 
         if (n >= limit)
@@ -285,6 +316,32 @@ int vw_parse_ranges(const char *s, vw_range *buf, size_t cap, size_t *out_n)
 
     *out_n = n;
     return 0;
+}
+
+void vw_resolve_ranges(vw_range *buf, size_t n, double duration_s)
+{
+    size_t i = 0;
+    double cap = 1000000000000.0;
+
+    if (buf == NULL)
+    {
+        return;
+    }
+    if (duration_s > 0.0)
+    {
+        cap = duration_s;
+    }
+    for (i = 0; i < n; i++)
+    {
+        if (buf[i].start_s < 0.0)
+        {
+            buf[i].start_s = 0.0;
+        }
+        if (buf[i].end_s < 0.0 || (duration_s > 0.0 && buf[i].end_s > duration_s))
+        {
+            buf[i].end_s = cap;
+        }
+    }
 }
 
 int vw_looks_like_ranges(const char *s)
@@ -566,7 +623,8 @@ int vw_ranges_cover(const vw_range *ranges, size_t n, double t_s)
 
     for (i = 0; i < n; i++)
     {
-        if (t_s >= ranges[i].start_s && t_s < ranges[i].end_s)
+        const double end = ranges[i].end_s < 0.0 ? 1000000000000.0 : ranges[i].end_s;
+        if (t_s >= ranges[i].start_s && t_s < end)
         {
             return 1;
         }

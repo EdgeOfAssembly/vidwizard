@@ -12,8 +12,11 @@ vidwizard clip.mp4 --reverse
 vidwizard clip.mp4 --mute
 ```
 
-No arguments prints usage (same as `-h`). Version is `-v` / `--version` (0.1).
+No arguments prints usage (same as `-h`). Version is `-v` / `--version` (0.2).
 `--verbose` is extra stderr, never `-v`.
+
+Several flags on one command run **in one sequential graph** (crop, then
+grayscale, then speed, …). Ranges are optional.
 
 ## What it does
 
@@ -27,9 +30,22 @@ No arguments prints usage (same as `-h`). Version is `-v` / `--version` (0.1).
 | `--reverse[=RANGES]` | `clip_rev.mp4` |
 | `--mute[=RANGES]` | `clip_mute.mp4` (drop audio, or silence windows) |
 
-Combine operations: `vidwizard clip.mp4 --grayscale --reverse` → `clip_edit.mp4`.
+Combine operations (no ranges required):
+
+```text
+vidwizard clip.mp4 --crop 640x360 --grayscale --speed 2
+```
+
+writes `clip_edit.mp4`. `--speed` keeps pitch-preserving audio; add `--mute`
+only if you want the stream dropped.
 
 Time ranges: `START-END,START-END,…` with seconds, `MM:SS`, or `HH:MM:SS`.
+Open end: `10-` or `5:00-` (to EOF). Open start: `-20` (from 0).
+
+```text
+vidwizard clip.mp4 --grayscale 5:00-
+vidwizard clip.mp4 --cut 10-
+```
 
 Threads: every logical core unless `--jobs N`.
 
