@@ -6,7 +6,7 @@ High-quality command-line video edits, no GUI.
 
 [![version](https://img.shields.io/badge/version-0.4.0--alpha-orange)](https://github.com/EdgeOfAssembly/vidwizard/releases)
 [![platform](https://img.shields.io/badge/platform-linux--x86__64-blue)](https://github.com/EdgeOfAssembly/vidwizard)
-[![license](https://img.shields.io/badge/license-use%20as%20you%20wish-lightgrey)](#license)
+[![license](https://img.shields.io/badge/license-GPLv3%20%2F%20Commercial-blue)](#license)
 
 > **Alpha (0.4.0-alpha).** Public preview.
 
@@ -187,4 +187,7 @@ Later ideas (mirror, infravision, blur, …): [`TODO.md`](TODO.md).
 
 ## License
 
-Use as you wish. Public-domain / CC0-style — no paperwork.
+Dual-licensed:
+
+- **GPLv3** (or later) — see [`LICENSE`](LICENSE) and [`COPYING`](COPYING)
+- **Commercial** — contact EdgeOfAssembly at haxbox2000@gmail.com
