@@ -2,14 +2,13 @@
 
 <img src="icons/vidwizard.svg" alt="vidwizard" width="128" height="128" align="right">
 
-**ImageMagick `convert` for video** — high-quality command-line edits, no GUI.
+High-quality command-line video edits, no GUI.
 
 [![version](https://img.shields.io/badge/version-0.4.0--alpha-orange)](https://github.com/EdgeOfAssembly/vidwizard/releases)
 [![platform](https://img.shields.io/badge/platform-linux--x86__64-blue)](https://github.com/EdgeOfAssembly/vidwizard)
 [![license](https://img.shields.io/badge/license-use%20as%20you%20wish-lightgrey)](#license)
 
-> **Alpha (0.4.0-alpha).** Public preview. Flags are intended to stay
-> stable; treat encoder details and edge cases as still moving.
+> **Alpha (0.4.0-alpha).** Public preview.
 
 Name a file, name the effect, get a result. Quality and every logical
 CPU core are the defaults. Several flags on one command run as **one
@@ -38,11 +37,10 @@ vidwizard catwalk.mp4 -o cat_demo.mp4 \
   --text-size 32
 ```
 
-No arguments prints usage (same as `-h` / `--help`). `-v` / `--version`
-print the version (never verbose). Extra progress is `--verbose` on
-stderr. Options and inputs may appear in any order. `-o` is one target
-(file or directory). Directory inputs expand to common video types;
-there is no `--batch` flag.
+`vidwizard` with no arguments (or `-h`) prints usage. `-v` prints the
+version. `--verbose` writes extra progress to stderr. Options and input
+paths may appear in any order. `-o` is a file or a directory. Pass a
+directory of videos to process every clip in it.
 
 ## Install
 
@@ -56,9 +54,8 @@ there is no `--batch` flag.
 
 ### From source
 
-Needs **g++/gcc** (gnu++23 / gnu23), **FFmpeg 8** development libraries
-(`libavfilter`, `libavformat`, `libavcodec`, `libavutil`, `libswscale`,
-`libswresample`), and pkg-config. Catch2 is required for `make test`.
+Needs **g++/gcc** (C++23), **FFmpeg 8** development libraries, and
+pkg-config.
 
 ```text
 git clone https://github.com/EdgeOfAssembly/vidwizard.git
@@ -68,7 +65,7 @@ make -s test
 sudo make install          # /usr/local/bin/vidwizard and man 1
 ```
 
-Default `make` is debug + ASan/UBSan. For an optimized binary:
+Optimized binary:
 
 ```text
 make -s V=0 -j$(nproc) release   # bin/release/vidwizard
@@ -78,13 +75,13 @@ make -s V=0 -j$(nproc) release   # bin/release/vidwizard
 
 | Flag | What |
 |------|------|
-| `-h`, `--help` | Usage and exit (also printed with no arguments) |
-| `-v`, `--version` | Version and exit — **never** verbose |
-| `-o`, `--output PATH` | Single output file or directory (once only) |
-| `--grayscale[=RANGES]` | Rec.709 grayscale → `clip_gray.mp4` |
-| `--explode[=RANGES]` | Lossless 32-bit RGBA PNG, max zlib → `clip_01.png` … |
+| `-h`, `--help` | Show usage |
+| `-v`, `--version` | Show version |
+| `-o`, `--output PATH` | Output file or directory |
+| `--grayscale[=RANGES]` | Grayscale → `clip_gray.mp4` |
+| `--explode[=RANGES]` | Lossless PNG frames → `clip_01.png` … |
 | `--cut RANGES` | Each window as its own video → `clip_cut_01.mp4` |
-| `--speed FACTOR[:RANGES]` | Forward speed; audio keeps pitch (`atempo`) → `clip_speed.mp4` |
+| `--speed FACTOR[:RANGES]` | Forward speed; audio stays in pitch → `clip_speed.mp4` |
 | `--crop GEOM[:RANGES]` | Crop `WxH+X+Y` or `W:H:X:Y` (`WxH` = centred) → `clip_crop.mp4` |
 | `--reverse[=RANGES]` | Reverse whole clip or windows in place → `clip_rev.mp4` |
 | `--mute[=RANGES]` | Drop all audio, or silence windows → `clip_mute.mp4` |
@@ -106,9 +103,9 @@ dropped.
 `--cut` requires at least one `START-END` range. PNG index width matches
 the frame count (20 frames → `01`..`20`; 1000 frames → `0001`..`1000`).
 
-One input plus `-o file` uses that exact name. Several inputs plus a
-file path warn and write `outstem_instem.ext`. A directory `-o` (created
-if missing) receives default-named outputs.
+One input plus `-o file` uses that exact name. Several inputs plus
+`-o out.mp4` write `out_<input>.mp4`. `-o` as a directory (created if
+missing) receives default-named outputs.
 
 ## Time ranges
 
@@ -130,18 +127,14 @@ vidwizard clip.mp4 --cut 10-
 
 ## Crop versus zoom
 
-This distinction matters.
-
 **`--crop`** keeps a pixel rectangle. `640x360` (or `640:360`) is
-centred; `280x200+180+8` is an ImageMagick-style origin. A **whole-clip**
-crop changes the output resolution. A **ranged** crop keeps that
-rectangle and **pads the rest of the frame black** — it is **not** a
-zoom. Output size stays the source size.
+centred; `280x200+180+8` is width × height + left + top. A whole-clip
+crop changes the output resolution. A ranged crop keeps that rectangle
+and pads the rest of the frame black (it is not a zoom).
 
-**`--zoom`** is a Ken Burns **fill-frame** zoom (`zoompan`). The output
-stays the source resolution; the picture scales around a normalized
-center. Spec: `Z0[-Z1][@CX,CY][:RANGE]` with segments split by `;`.
-`Z` is 1..8 (1 = no zoom). `CX,CY` are 0..1 (default 0.5,0.5).
+**`--zoom`** fills the frame. Output size stays the source size. Spec:
+`Z0[-Z1][@CX,CY][:RANGE]` with segments split by `;`.
+`Z` is 1..8 (1 = no zoom). `CX,CY` are 0..1 (default 0.5, 0.5).
 `Z0-Z1` animates over the range; a single `Z` holds that factor.
 
 ```text
@@ -152,12 +145,10 @@ vidwizard clip.mp4 --zoom '1-2.35@0.50,0.40:2.0-4.0;2.35-1@0.50,0.40:4.0-5.5'
 
 ## Text overlays
 
-`--text` is repeatable. Spec is `TEXT[:RANGE][+X+Y]`. Range and position
-are parsed from the right so the label may contain colons. Default
-origin is `0,0` (top-left), bold white, transparent background.
-`--text-font`, `--text-style`, `--text-size`, `--text-color`, and
-`--text-bg` apply to every overlay on the command. `--text-bg 000000c0`
-is a translucent black box (8 hex digits = alpha).
+`--text` is repeatable. Spec is `TEXT[:RANGE][+X+Y]`. Default origin is
+`0,0` (top-left), bold white, transparent background. `--text-font`,
+`--text-style`, `--text-size`, `--text-color`, and `--text-bg` apply to
+every overlay. `--text-bg 000000c0` is a translucent black box.
 
 ```text
 vidwizard clip.mp4 \
@@ -175,20 +166,10 @@ long 4K reverse can use a lot of memory).
 ```text
 make -s V=0 -j$(nproc)
 make -s test
+make -s V=0 -j$(nproc) release   # bin/release/vidwizard
 ```
 
-`make test` (alias `make tests`) runs Catch2 plus generated fixtures.
-`make verify` runs CBMC on the time-range parser after tests.
-`make -s V=0 -j$(nproc) release` builds `bin/release/vidwizard`.
-
-Optional network smoke (yt-dlp):
-
-```text
-scripts/fetch-test-clip.sh
-./vidwizard testdata/net/netclip.* --grayscale -o testdata/net/gray.mp4
-```
-
-Manual page: `man/vidwizard.1` (`man vidwizard` after `make install`).
+Manual page: `man vidwizard` after `make install`, or `man/vidwizard.1`.
 
 Later ideas (mirror, infravision, blur, …): [`TODO.md`](TODO.md).
 
