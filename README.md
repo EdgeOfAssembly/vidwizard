@@ -49,6 +49,14 @@ vidwizard catwalk.mp4 -o cat_demo.mp4 \
   --text-size 32
 ```
 
+A long command is optional. You can run one effect, save, and use that
+file as the next input:
+
+```text
+vidwizard clip.mp4 --grayscale -o gray.mp4
+vidwizard gray.mp4 --crop 640x360 -o gray_crop.mp4
+```
+
 `vidwizard` with no arguments (or `-h`) prints usage. `-v` prints the
 version. `--verbose` writes extra progress to stderr. Options and input
 paths may appear in any order. `-o` is a file or a directory. Pass a
